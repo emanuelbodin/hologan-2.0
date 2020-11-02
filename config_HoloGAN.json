@@ -1,6 +1,6 @@
 {
 	"image_path": "../datasets/chairs",
-	"gpu": 1,
+	"gpu": "0",
 	"batch_size": 12,
 	"max_epochs": 150,
 	"epoch_step": 100,
@@ -22,7 +22,7 @@
 	"ele_low": 70,
 	"ele_high": 110,
 	"azi_low": 0,
-	"azi_high": 360,
+	"azi_high": 359,
 	"scale_low": 1.0,
 	"scale_high": 1.0,
 	"x_low": 0,

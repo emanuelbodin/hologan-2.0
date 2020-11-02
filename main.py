@@ -54,14 +54,11 @@ def main(_):
         FLAGS.input_width = FLAGS.input_height
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
-    if not os.path.exists(LOGDIR):
-        os.makedirs(LOGDIR)
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
     run_config = tf.compat.v1.ConfigProto()
     run_config.gpu_options.allow_growth = True
-    print("FLAG train " + str(FLAGS.train))
     with tf.compat.v1.Session(config=run_config) as sess:
         model = HoloGAN(
             sess,
@@ -79,7 +76,6 @@ def main(_):
 
         if FLAGS.train:
             train_func = eval("model." + (cfg['train_func']))
-            print("Caling train func")
             train_func(FLAGS)
         else:
             if not model.load(LOGDIR)[0]:

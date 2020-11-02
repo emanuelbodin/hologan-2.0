@@ -15,7 +15,9 @@ with open(sys.argv[1], 'r') as fh:
 IMAGE_PATH = cfg['image_path']
 OUTPUT_DIR = cfg['output_dir']
 LOGDIR = os.path.join(OUTPUT_DIR, "log")
-
+MODELDIR = os.path.join(OUTPUT_DIR, 'models')
+IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
+SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
 # ----------------------------------------------------------------------------
 
@@ -23,7 +25,7 @@ class HoloGAN(object):
     def __init__(self, sess, input_height=108, input_width=108, crop=True,
                  output_height=64, output_width=64,
                  gf_dim=64, df_dim=64,
-                 c_dim=3, dataset_name='lsun',
+                 c_dim=3, dataset_name='no dataset name',
                  input_fname_pattern='*.webp'):
 
         self.sess = sess
@@ -42,7 +44,17 @@ class HoloGAN(object):
         self.input_fname_pattern = input_fname_pattern
         self.data = glob.glob(os.path.join(
             IMAGE_PATH, self.input_fname_pattern))
-        self.checkpoint_dir = LOGDIR
+        self.model_dir = os.path.join(MODELDIR, self.dataset_name)
+        self.img_dir = os.path.join(IMG_DIR, self.dataset_name)
+        self.log_dir = os.path.join(LOGDIR, self.dataset_name)
+        self.sample_dir = os.path.join(SAMPLE_DIR, self.dataset_name)
+        if not os.path.exists(self.model_dir):
+          os.makedirs(self.model_dir)
+        if not os.path.exists(self.img_dir):
+          os.makedirs(self.img_dir)
+        if not os.path.exists(self.log_dir):
+          os.makedirs(self.log_dir)
+
 
     def build(self, build_func_name):
         build_func = eval("self." + build_func_name)
@@ -124,6 +136,8 @@ class HoloGAN(object):
         self.saver = tf.train.Saver()
 
     def train_HoloGAN(self, config):
+       
+
         self.d_lr_in = tf.compat.v1.placeholder(tf.float32, None, name='d_eta')
         self.g_lr_in = tf.compat.v1.placeholder(tf.float32, None, name='d_eta')
 
@@ -134,10 +148,10 @@ class HoloGAN(object):
 
         tf.global_variables_initializer().run()
 
-        shutil.copyfile(sys.argv[1], os.path.join(LOGDIR, 'config.json'))
+        shutil.copyfile(sys.argv[1], os.path.join(self.log_dir, 'config.json'))
         self.g_sum = merge_summary([self.d_loss_fake_sum, self.g_loss_sum])
         self.d_sum = merge_summary([self.d_loss_real_sum, self.d_loss_sum])
-        self.writer = SummaryWriter(LOGDIR, self.sess.graph)
+        self.writer = SummaryWriter(self.log_dir, self.sess.graph)
 
         # Sample noise Z and view parameters to test during training
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
@@ -156,19 +170,17 @@ class HoloGAN(object):
                                     input_width=self.input_width,
                                     resize_height=self.output_height,
                                     resize_width=self.output_width,
-                                    crop=True) for sample_file in sample_files]
+                                    crop=False) for sample_file in sample_files]
 
         counter = 1
         start_time = time.time()
-        could_load, checkpoint_counter = self.load(self.checkpoint_dir)
+        could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
 
-        self.data = glob.glob(os.path.join(
-            IMAGE_PATH, self.input_fname_pattern))
         d_lr = cfg['d_eta']
         g_lr = cfg['g_eta']
         for epoch in range(cfg['max_epochs']):
@@ -178,7 +190,7 @@ class HoloGAN(object):
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
             random.shuffle(self.data)
             batch_idxs = min(
-                len(self.data), int(config.train_size)) // cfg['batch_size']
+                len(self.data), config.train_size) // cfg['batch_size']
             for idx in range(0, batch_idxs):
                 batch_files = self.data[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
               
@@ -228,8 +240,8 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 200) == 1:
-                    self.save(LOGDIR, counter)
+                if np.mod(counter, 2) == 1:
+                    self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,
                                  self.view_in: sample_view,
@@ -243,29 +255,28 @@ class HoloGAN(object):
                     try:
                         imageio.imwrite(
                             os.path.join(
-                                OUTPUT_DIR, "{0}_GAN.png".format(counter)),
+                                self.img_dir, "{0}_GAN.png".format(counter)),
                             merge(ren_img, [cfg['batch_size'] // 4, 4]))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                               (d_loss, g_loss))
                     except:
                         imageio.imwrite(
                             os.path.join(
-                                OUTPUT_DIR, "{0}_GAN.png".format(counter)),
+                                self.img_dir, "{0}_GAN.png".format(counter)),
                             ren_img[0])
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                               (d_loss, g_loss))
 
     def sample_HoloGAN(self, config):
-        could_load, checkpoint_counter = self.load(self.checkpoint_dir)
+        could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
             return
-        SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
-        if not os.path.exists(SAMPLE_DIR):
-            os.makedirs(SAMPLE_DIR)
+        if not os.path.exists(self.sample_dir):
+            os.makedirs(self.sample_dir)
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
         if config.rotate_azimuth:
             low = cfg['azi_low']
@@ -297,7 +308,8 @@ class HoloGAN(object):
                                                  cfg['z_low'], cfg['z_high'],
                                                  with_translation=False,
                                                  with_scale=to_bool(str(cfg['with_translation'])))
-
+            print('z: ', sample_z)
+            print('view: ', sample_view)
             feed_eval = {self.z: sample_z,
                          self.view_in: sample_view}
 
@@ -437,34 +449,20 @@ class HoloGAN(object):
             output = tf.nn.tanh(h6, name="output")
             return output
 # =======================================================================================================================
-    @ property
-    def model_dir(self):
-        return "{}_{}_{}".format(
-            self.dataset_name,
-            self.output_height, self.output_width)
-
-    def save(self, checkpoint_dir, step):
+    def save(self, step):
         model_name = "HoloGAN.model"
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-
-        if not os.path.exists(checkpoint_dir):
-            os.makedirs(checkpoint_dir)
-
         self.saver.save(self.sess,
-                        os.path.join(checkpoint_dir, model_name),
+                        os.path.join(self.model_dir, model_name),
                         global_step=step)
 
-    def load(self, checkpoint_dir):
+    def load(self):
         import re
         print(" [*] Reading checkpoints...")
-        print('old', checkpoint_dir, self.model_dir)
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-        print('CD', checkpoint_dir)
-        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        ckpt = tf.train.get_checkpoint_state(self.model_dir)
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.sess, os.path.join(
-                checkpoint_dir, ckpt_name))
+                self.model_dir, ckpt_name))
             counter = int(
                 next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
             print(" [*] Success to read {}".format(ckpt_name))

@@ -1,0 +1,1 @@
+tensorboard --logdir="./HoloGAN/log" --port 6006

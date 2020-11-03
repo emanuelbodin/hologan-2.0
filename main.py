@@ -78,9 +78,10 @@ def main(_):
             train_func = eval("model." + (cfg['train_func']))
             train_func(FLAGS)
         else:
-            if not model.load(LOGDIR)[0]:
+            if not model.load()[0]:
                 raise Exception("[!] Train a model first, then run test mode")
-            model.sample_HoloGAN(FLAGS)
+            model.train_z_map(FLAGS)
+            #model.sample_HoloGAN(FLAGS)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ import glob
 import json
 import shutil
 import imageio
+import numpy as np
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -97,7 +98,6 @@ class HoloGAN(object):
                     self.d_h4_r, tf.ones_like(self.d_h4_r)))
                 + tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.d_h4_f, tf.zeros_like(self.d_h4_f))))
         else:
-            print('inputs', inputs)
             self.D, self.D_logits, _ = dis_func(
                 inputs, cont_dim=cfg['z_dim'], reuse=False)
             self.D_, self.D_logits_, self.Q_c_given_x = dis_func(
@@ -110,6 +110,8 @@ class HoloGAN(object):
         self.d_loss = self.d_loss_real + self.d_loss_fake
         self.g_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(
             self.D_logits_, tf.ones_like(self.D_)))
+        
+        # tf.reduce_mean(tf.norm(self.G, self.inputs)) +
 
         if str.lower(str(cfg["style_disc"])) == "true":
             print("Style disc")
@@ -134,7 +136,49 @@ class HoloGAN(object):
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
         self.saver = tf.train.Saver()
+        
 
+    
+    def train_z_map(self, config):
+        could_load, checkpoint_counter = self.load()
+        if could_load:
+            counter = checkpoint_counter
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+            return
+
+        sample_files = self.data[0]
+        sample_z = self.sampling_Z(1, str(cfg['sample_z']))
+        sample_z = tf.Variable(sample_z)
+        mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
+        target_image_difference = mae(self.G, self.inputs)
+        regularizer = tf.abs(tf.norm(sample_z) - np.sqrt(cfg['z_dim']))
+        regularizer = tf.cast(regularizer, dtype=tf.float32)
+        z_map_loss = target_image_difference + regularizer
+        z_map_loss = tf.abs(tf.norm(sample_z) - np.sqrt(cfg['z_dim']))
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss)
+        sample_view = self.gen_view_func(cfg['batch_size'],
+                                                cfg['ele_low'], cfg['ele_high'],
+                                                cfg['azi_low'], cfg['azi_high'],
+                                                cfg['scale_low'], cfg['scale_high'],
+                                                cfg['x_low'], cfg['x_high'],
+                                                cfg['y_low'], cfg['y_high'],
+                                                cfg['z_low'], cfg['z_high'],
+                                                with_translation=False,
+                                                with_scale=to_bool(str(cfg['with_translation'])))
+
+        num_optimization_steps = 200
+        losses = []
+        for step in range(num_optimization_steps):
+          if (step % 100)==0:
+            print()
+          print('.', end='')
+          feed_z_map = {self.z: sample_z, self.view_in: sample_view}
+          z_map_loss = self.sess.run(optimizer, feed_dict=feed_z_map)
+          #losses.append(z_map_loss.numpy())
+
+    
     def train_HoloGAN(self, config):
        
 
@@ -448,6 +492,7 @@ class HoloGAN(object):
 
             output = tf.nn.tanh(h6, name="output")
             return output
+
 # =======================================================================================================================
     def save(self, step):
         model_name = "HoloGAN.model"

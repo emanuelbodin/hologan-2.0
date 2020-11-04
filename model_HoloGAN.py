@@ -218,6 +218,7 @@ class HoloGAN(object):
         self.d_sum = merge_summary([self.d_loss_real_sum, self.d_loss_sum])
         self.writer = SummaryWriter(self.log_dir, self.sess.graph)
 
+
         # Sample noise Z and view parameters to test during training
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
         sample_view = self.gen_view_func(cfg['batch_size'],
@@ -256,6 +257,7 @@ class HoloGAN(object):
             random.shuffle(self.data)
             batch_idxs = min(
                 len(self.data), config.train_size) // cfg['batch_size']
+            batch_idxs = int(batch_idxs)
             for idx in range(0, batch_idxs):
                 batch_files = self.data[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
               
@@ -305,7 +307,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 2) == 1:
+                if np.mod(counter, 1000) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,

@@ -1,7 +1,9 @@
 {
-	"image_path": "../datasets/chairs",
+  "z_map": "true",
+  "z_map_image_path": "../datasets/noise",
+	"image_path": "../datasets/noise",
 	"gpu": "0",
-	"batch_size": 12,
+	"batch_size": 1,
 	"max_epochs": 150,
 	"epoch_step": 100,
 	"z_dim": 128,

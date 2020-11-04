@@ -15,6 +15,8 @@ with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
 IMAGE_PATH = cfg['image_path']
 OUTPUT_DIR = cfg['output_dir']
+Z_MAP_IMAGE_PATH = cfg['z_map_image_path']
+
 LOGDIR = os.path.join(OUTPUT_DIR, "log")
 MODELDIR = os.path.join(OUTPUT_DIR, 'models')
 IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
@@ -45,6 +47,8 @@ class HoloGAN(object):
         self.input_fname_pattern = input_fname_pattern
         self.data = glob.glob(os.path.join(
             IMAGE_PATH, self.input_fname_pattern))
+        self.z_map_image = glob.glob(os.path.join(
+            Z_MAP_IMAGE_PATH, self.input_fname_pattern))
         self.model_dir = os.path.join(MODELDIR, self.dataset_name)
         self.img_dir = os.path.join(IMG_DIR, self.dataset_name)
         self.log_dir = os.path.join(LOGDIR, self.dataset_name)
@@ -66,6 +70,8 @@ class HoloGAN(object):
         self.inputs = tf.compat.v1.placeholder(tf.float32, [
                                      None, self.output_height, self.output_width, self.c_dim], name='real_images')
         self.z = tf.compat.v1.placeholder(tf.float32, [None, cfg['z_dim']], name='z')
+        init = tf.truncated_normal_initializer(stddev=0.01)
+        self.z_map = tf.compat.v1.get_variable("sample_z", shape=(1, cfg['z_dim']), dtype=tf.float32, initializer=init)
         inputs = self.inputs
 
         gen_func = eval("self." + (cfg['generator']))
@@ -111,7 +117,7 @@ class HoloGAN(object):
         self.g_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(
             self.D_logits_, tf.ones_like(self.D_)))
         
-        # tf.reduce_mean(tf.norm(self.G, self.inputs)) +
+        self.G_z_map = gen_func(self.z_map, self.view_in, reuse=True)
 
         if str.lower(str(cfg["style_disc"])) == "true":
             print("Style disc")
@@ -131,11 +137,13 @@ class HoloGAN(object):
         self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
 
         t_vars = tf.trainable_variables()
-
+ 
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
         self.saver = tf.train.Saver()
+
+        self.hej = 'oj'
         
 
     
@@ -147,18 +155,26 @@ class HoloGAN(object):
         else:
             print(" [!] Load failed...")
             return
+        sample_file = self.z_map_image[0]
+        sample_image = get_image(sample_file,
+                                    input_height=self.input_height,
+                                    input_width=self.input_width,
+                                    resize_height=self.output_height,
+                                    resize_width=self.output_width,
+                                    crop=False)
+        sample_image = sample_image.reshape(1, 64,64,3).astype('float32')
 
-        sample_files = self.data[0]
-        sample_z = self.sampling_Z(1, str(cfg['sample_z']))
-        sample_z = tf.Variable(sample_z)
+        vars = tf.trainable_variables()
+        z_var = [var for var in vars if 'sample_z' in var.name]
+        self.hej = 'hej'
+
         mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
-        target_image_difference = mae(self.G, self.inputs)
-        regularizer = tf.abs(tf.norm(sample_z) - np.sqrt(cfg['z_dim']))
+        target_image_difference = mae(self.G_z_map, self.inputs)
+        regularizer = tf.abs(tf.norm(self.z_map) - np.sqrt(cfg['z_dim']))
         regularizer = tf.cast(regularizer, dtype=tf.float32)
         z_map_loss = target_image_difference + regularizer
-        z_map_loss = tf.abs(tf.norm(sample_z) - np.sqrt(cfg['z_dim']))
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss)
-        sample_view = self.gen_view_func(cfg['batch_size'],
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
+        sample_view = self.gen_view_func(1,
                                                 cfg['ele_low'], cfg['ele_high'],
                                                 cfg['azi_low'], cfg['azi_high'],
                                                 cfg['scale_low'], cfg['scale_high'],
@@ -168,16 +184,21 @@ class HoloGAN(object):
                                                 with_translation=False,
                                                 with_scale=to_bool(str(cfg['with_translation'])))
 
-        num_optimization_steps = 200
+        num_optimization_steps = 3
         losses = []
+        tf.global_variables_initializer().run()
+        print('START')
+        print(self.sess.run(self.z_map))
         for step in range(num_optimization_steps):
           if (step % 100)==0:
             print()
           print('.', end='')
-          feed_z_map = {self.z: sample_z, self.view_in: sample_view}
-          z_map_loss = self.sess.run(optimizer, feed_dict=feed_z_map)
-          #losses.append(z_map_loss.numpy())
-
+          feed_z = self.sess.run(self.z_map)
+          feed_z_map = { self.view_in: sample_view, self.inputs: sample_image}
+          _, hej = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
+          print('loss: ', hej)
+        print()
+        print(self.sess.run(self.z_map))
     
     def train_HoloGAN(self, config):
        
@@ -312,6 +333,11 @@ class HoloGAN(object):
                               (d_loss, g_loss))
 
     def sample_HoloGAN(self, config):
+        if str.lower(str(cfg["z_map"])) == "true":
+            sample_z = self.sess.run(self.z_map)
+        else:
+            sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+            
         could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
@@ -321,7 +347,7 @@ class HoloGAN(object):
             return
         if not os.path.exists(self.sample_dir):
             os.makedirs(self.sample_dir)
-        sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+       
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
@@ -352,8 +378,7 @@ class HoloGAN(object):
                                                  cfg['z_low'], cfg['z_high'],
                                                  with_translation=False,
                                                  with_scale=to_bool(str(cfg['with_translation'])))
-            print('z: ', sample_z)
-            print('view: ', sample_view)
+
             feed_eval = {self.z: sample_z,
                          self.view_in: sample_view}
 

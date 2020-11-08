@@ -70,8 +70,7 @@ class HoloGAN(object):
         self.inputs = tf.compat.v1.placeholder(tf.float32, [
                                      None, self.output_height, self.output_width, self.c_dim], name='real_images')
         self.z = tf.compat.v1.placeholder(tf.float32, [None, cfg['z_dim']], name='z')
-        init = tf.truncated_normal_initializer(stddev=0.01)
-        self.z_map = tf.compat.v1.get_variable("sample_z", shape=(1, cfg['z_dim']), dtype=tf.float32, initializer=init)
+        #self.z_map = tf.compat.v1.get_variable("hej", shape=(1, cfg['z_dim']), dtype=tf.float32, initializer=init)
         inputs = self.inputs
 
         gen_func = eval("self." + (cfg['generator']))
@@ -117,7 +116,7 @@ class HoloGAN(object):
         self.g_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(
             self.D_logits_, tf.ones_like(self.D_)))
         
-        self.G_z_map = gen_func(self.z_map, self.view_in, reuse=True)
+        #self.G_z_map = gen_func(self.z_map, self.view_in, reuse=True)
 
         if str.lower(str(cfg["style_disc"])) == "true":
             print("Style disc")
@@ -141,39 +140,15 @@ class HoloGAN(object):
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver()
-
-        self.hej = 'oj'
-        
+        self.saver = tf.train.Saver()        
 
     
     def train_z_map(self, config):
-        could_load, checkpoint_counter = self.load()
-        if could_load:
-            counter = checkpoint_counter
-            print(" [*] Load SUCCESS")
-        else:
-            print(" [!] Load failed...")
-            return
-        sample_file = self.z_map_image[0]
-        sample_image = get_image(sample_file,
-                                    input_height=self.input_height,
-                                    input_width=self.input_width,
-                                    resize_height=self.output_height,
-                                    resize_width=self.output_width,
-                                    crop=False)
-        sample_image = sample_image.reshape(1, 64,64,3).astype('float32')
-
-        vars = tf.trainable_variables()
-        z_var = [var for var in vars if 'sample_z' in var.name]
-        self.hej = 'hej'
-
-        mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
-        target_image_difference = mae(self.G_z_map, self.inputs)
-        regularizer = tf.abs(tf.norm(self.z_map) - np.sqrt(cfg['z_dim']))
-        regularizer = tf.cast(regularizer, dtype=tf.float32)
-        z_map_loss = target_image_difference + regularizer
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
+        sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+        """
+        sample_z = tf.Variable(sample_z, name="sample_z")
+        self.z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+        """
         sample_view = self.gen_view_func(1,
                                                 cfg['ele_low'], cfg['ele_high'],
                                                 cfg['azi_low'], cfg['azi_high'],
@@ -183,23 +158,77 @@ class HoloGAN(object):
                                                 cfg['z_low'], cfg['z_high'],
                                                 with_translation=False,
                                                 with_scale=to_bool(str(cfg['with_translation'])))
+        sample_file = self.z_map_image[0]
+        sample_image = get_image(sample_file,
+                                    input_height=self.input_height,
+                                    input_width=self.input_width,
+                                    resize_height=self.output_height,
+                                    resize_width=self.output_width,
+                                    crop=False)
+        sample_image = sample_image.reshape(1, 64,64,3).astype('float32')
 
-        num_optimization_steps = 3
-        losses = []
+
+        vars = tf.trainable_variables()
+        z_var = [var for var in vars if 'z_weight' in var.name]
+        
+        mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
+        target_image_difference = mae(self.G, self.inputs)
+        regularizer = tf.abs(tf.norm(sample_z) - np.sqrt(cfg['z_dim']))
+        regularizer = tf.cast(regularizer, dtype=tf.float32)
+        z_map_loss =  regularizer + target_image_difference
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
         tf.global_variables_initializer().run()
+
+        could_load, checkpoint_counter = self.load()
+        if could_load:
+            counter = checkpoint_counter
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+            return
+        
+
+        num_optimization_steps = 1000
+        losses = []
         print('START')
-        print(self.sess.run(self.z_map))
+        #print(sample_z)
+
+        #tf.global_variables_initializer().run()
+        #print(self.z)
+        #raise Exception('hej')
+        #feed_z = self.sess.run(sample_z)
+        feed = { self.view_in: sample_view, self.z: sample_z}
+        ren_img = self.sess.run(self.G, feed_dict=feed)
+        ren_img = inverse_transform(ren_img)
+        ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+        imageio.imwrite(
+          os.path.join(
+            self.sample_dir, "{0}_samples_{0}.jpg".format(1, 1)),
+          ren_img[0])
+        print('first image')
+        
         for step in range(num_optimization_steps):
           if (step % 100)==0:
             print()
           print('.', end='')
-          feed_z = self.sess.run(self.z_map)
-          feed_z_map = { self.view_in: sample_view, self.inputs: sample_image}
-          _, hej = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
-          print('loss: ', hej)
+          #feed_z = self.sess.run(self.z)
+          #self.z_map = feed_z
+          feed_z_map = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_image}
+          _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
+          print('loss: ', loss)
+        
         print()
-        print(self.sess.run(self.z_map))
-    
+        #tf.global_variables_initializer().run()
+        #feed_z = self.sess.run(sample_z)
+        feed = { self.view_in: sample_view, self.z: sample_z}
+        ren_img = self.sess.run(self.G, feed_dict=feed)
+        ren_img = inverse_transform(ren_img)
+        ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+        imageio.imwrite(
+          os.path.join(
+            self.sample_dir, "{0}_samples_{0}.jpg".format(2, 2)),
+          ren_img[0])
+
     def train_HoloGAN(self, config):
        
 
@@ -307,7 +336,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 1000) == 1:
+                if np.mod(counter, 2) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,
@@ -322,21 +351,21 @@ class HoloGAN(object):
                     try:
                         imageio.imwrite(
                             os.path.join(
-                                self.img_dir, "{0}_GAN.png".format(counter)),
+                                self.img_dir, "{0}_GAN.jpg".format(counter)),
                             merge(ren_img, [cfg['batch_size'] // 4, 4]))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                               (d_loss, g_loss))
                     except:
                         imageio.imwrite(
                             os.path.join(
-                                self.img_dir, "{0}_GAN.png".format(counter)),
+                                self.img_dir, "{0}_GAN.jpg".format(counter)),
                             ren_img[0])
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                               (d_loss, g_loss))
 
     def sample_HoloGAN(self, config):
         if str.lower(str(cfg["z_map"])) == "true":
-            sample_z = self.sess.run(self.z_map)
+            sample_z = self.z_map
         else:
             sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
             
@@ -353,7 +382,7 @@ class HoloGAN(object):
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
-            step = 10
+            step = 45
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
@@ -387,17 +416,18 @@ class HoloGAN(object):
             samples = self.sess.run(self.G, feed_dict=feed_eval)
             ren_img = inverse_transform(samples)
             ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+          
             try:
                 imageio.imwrite(
                     os.path.join(
-                        SAMPLE_DIR, "{0}_samples_{1}.png".format(counter, i)),
+                        self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     merge(ren_img, [cfg['batch_size'] // 4, 4]))
             except:
                 imageio.imwrite(
                     os.path.join(
-                        SAMPLE_DIR, "{0}_samples_{1}.png".format(counter, i)),
+                        self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     ren_img[0])
-
+          
 # =======================================================================================================================
 
     def sampling_Z(self, z_dim, type="uniform"):
@@ -455,6 +485,10 @@ class HoloGAN(object):
 
     def generator_AdaIN(self, z, view_in, reuse=False):
         batch_size = tf.shape(z)[0]
+
+        z_w = tf.compat.v1.get_variable(name='z_weight', shape=[cfg['z_dim'], cfg['z_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
+        z = tf.matmul(z, z_w)
+
         s_h, s_w, s_d = 64, 64, 64
         s_h2, s_w2, s_d2 = conv_out_size_same(s_h, 2), conv_out_size_same(
             s_w, 2), conv_out_size_same(s_d, 2)

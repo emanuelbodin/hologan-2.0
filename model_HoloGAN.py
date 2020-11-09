@@ -398,7 +398,7 @@ class HoloGAN(object):
         else:
             low = 0
             high = 10
-            step = 10
+            step = 2
 
         for i in range(low, high, step):
             if config.rotate_azimuth:

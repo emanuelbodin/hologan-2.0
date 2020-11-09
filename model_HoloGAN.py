@@ -145,6 +145,7 @@ class HoloGAN(object):
     
     def train_z_map(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+        z_var = tf.Variable(sample_z, name="z_var")
         sample_view = self.gen_view_func(cfg['batch_size'],
                                                 cfg['ele_low'], cfg['ele_high'],
                                                 cfg['azi_low'], cfg['azi_high'],
@@ -164,17 +165,17 @@ class HoloGAN(object):
         sample_image = sample_image.reshape(1, 64,64,3).astype('float32')
 
 
-        vars = tf.trainable_variables()
-        z_var = [var for var in vars if 'z_weight' in var.name]
-        print(z_var)
+        #vars = tf.trainable_variables()
+        #z_variable = [var for var in vars if 'z_var' in var.name]
+        #print(z_variable)
         #raise Exception('hej')
         
         mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
-        target_image_difference = mae(self.inputs, self.G)
+        target_image_difference = mae(sample_image[0], self.G)
         regularizer = tf.abs(tf.norm(z_var) - np.sqrt(cfg['z_dim']))
         regularizer = tf.cast(regularizer, dtype=tf.float32)
-        z_map_loss =  regularizer + target_image_difference
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
+        z_map_loss = target_image_difference
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.01, beta1=cfg['beta1'], beta2=cfg['beta2'], name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
         tf.global_variables_initializer().run()
 
 
@@ -187,10 +188,10 @@ class HoloGAN(object):
             return
         
 
-        num_optimization_steps = 10
+        num_optimization_steps = 20
         losses = []
         print('START')
-        feed = { self.view_in: sample_view, self.z: sample_z}
+        feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_image}
         ren_img = self.sess.run(self.G, feed_dict=feed)
         ren_img = inverse_transform(ren_img)
         ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
@@ -204,16 +205,25 @@ class HoloGAN(object):
           sample_image[0])
         print('first image')
 
-        raise Exception('ö')
+        e = mae(ren_img[0], sample_image[0] )
+        err = self.sess.run(e)
+        print('error: ', err)
+        #raise Exception('ö')
 
         for step in range(num_optimization_steps):
-          if (step % 100)==0:
-            print(step)
-          #feed_z = self.sess.run(self.z)
-          #self.z_map = feed_z
-          feed_z_map = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_image}
+          feed_z_map = { self.view_in: sample_view, self.z: sample_z}
+          
+          gen_img = self.sess.run(self.G, feed_dict=feed_z_map)
+          e = mae(gen_img[0], sample_image[0] )
+          err = self.sess.run(e)
+          reg_error = self.sess.run(regularizer)
+          print('mae: ', err)
+          print('reg error: ', reg_error)
           _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
           print('loss: ', loss)
+
+          
+          #print('shape: ', gen_img.shape)
         
         print()
         feed = { self.view_in: sample_view, self.z: sample_z}

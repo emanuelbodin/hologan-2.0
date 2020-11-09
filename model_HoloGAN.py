@@ -145,11 +145,7 @@ class HoloGAN(object):
     
     def train_z_map(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-        """
-        sample_z = tf.Variable(sample_z, name="sample_z")
-        self.z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-        """
-        sample_view = self.gen_view_func(1,
+        sample_view = self.gen_view_func(cfg['batch_size'],
                                                 cfg['ele_low'], cfg['ele_high'],
                                                 cfg['azi_low'], cfg['azi_high'],
                                                 cfg['scale_low'], cfg['scale_high'],
@@ -170,14 +166,17 @@ class HoloGAN(object):
 
         vars = tf.trainable_variables()
         z_var = [var for var in vars if 'z_weight' in var.name]
+        print(z_var)
+        #raise Exception('hej')
         
         mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
-        target_image_difference = mae(self.G, self.inputs)
-        regularizer = tf.abs(tf.norm(sample_z) - np.sqrt(cfg['z_dim']))
+        target_image_difference = mae(self.inputs, self.G)
+        regularizer = tf.abs(tf.norm(z_var) - np.sqrt(cfg['z_dim']))
         regularizer = tf.cast(regularizer, dtype=tf.float32)
         z_map_loss =  regularizer + target_image_difference
         optimizer = tf.train.AdamOptimizer(learning_rate=0.01, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
         tf.global_variables_initializer().run()
+
 
         could_load, checkpoint_counter = self.load()
         if could_load:
@@ -188,15 +187,9 @@ class HoloGAN(object):
             return
         
 
-        num_optimization_steps = 1000
+        num_optimization_steps = 10
         losses = []
         print('START')
-        #print(sample_z)
-
-        #tf.global_variables_initializer().run()
-        #print(self.z)
-        #raise Exception('hej')
-        #feed_z = self.sess.run(sample_z)
         feed = { self.view_in: sample_view, self.z: sample_z}
         ren_img = self.sess.run(self.G, feed_dict=feed)
         ren_img = inverse_transform(ren_img)
@@ -205,12 +198,17 @@ class HoloGAN(object):
           os.path.join(
             self.sample_dir, "{0}_samples_{0}.jpg".format(1, 1)),
           ren_img[0])
+        imageio.imwrite(
+          os.path.join(
+            self.sample_dir, "{0}_test_imng_{0}.jpg".format(1, 1)),
+          sample_image[0])
         print('first image')
-        
+
+        raise Exception('ö')
+
         for step in range(num_optimization_steps):
           if (step % 100)==0:
-            print()
-          print('.', end='')
+            print(step)
           #feed_z = self.sess.run(self.z)
           #self.z_map = feed_z
           feed_z_map = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_image}
@@ -218,8 +216,6 @@ class HoloGAN(object):
           print('loss: ', loss)
         
         print()
-        #tf.global_variables_initializer().run()
-        #feed_z = self.sess.run(sample_z)
         feed = { self.view_in: sample_view, self.z: sample_z}
         ren_img = self.sess.run(self.G, feed_dict=feed)
         ren_img = inverse_transform(ren_img)
@@ -365,7 +361,9 @@ class HoloGAN(object):
 
     def sample_HoloGAN(self, config):
         if str.lower(str(cfg["z_map"])) == "true":
-            sample_z = self.z_map
+            #sample_z = self.z_map
+            sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+
         else:
             sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
             
@@ -390,7 +388,7 @@ class HoloGAN(object):
         else:
             low = 0
             high = 10
-            step = 1
+            step = 10
 
         for i in range(low, high, step):
             if config.rotate_azimuth:
@@ -485,9 +483,12 @@ class HoloGAN(object):
 
     def generator_AdaIN(self, z, view_in, reuse=False):
         batch_size = tf.shape(z)[0]
+        print('z: ', z.shape)
+        #z_w = tf.compat.v1.get_variable(name='z_weight', shape=[cfg['z_dim'], cfg['z_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
+       # z = tf.matmul(z, z_w)
+        print('z1: ', z.shape)
+       # raise Exception('å')
 
-        z_w = tf.compat.v1.get_variable(name='z_weight', shape=[cfg['z_dim'], cfg['z_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
-        z = tf.matmul(z, z_w)
 
         s_h, s_w, s_d = 64, 64, 64
         s_h2, s_w2, s_d2 = conv_out_size_same(s_h, 2), conv_out_size_same(

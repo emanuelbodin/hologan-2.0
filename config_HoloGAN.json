@@ -1,9 +1,9 @@
 {
   "z_map": "false",
   "z_map_image_path": "../datasets/cars_sample",
-	"image_path": "../datasets/chairs",
+	"image_path": "../datasets/cars",
 	"gpu": "0",
-	"batch_size": 1,
+	"batch_size": 32,
 	"max_epochs": 50,
 	"epoch_step": 25,
 	"z_dim": 200,

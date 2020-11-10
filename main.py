@@ -80,9 +80,9 @@ def main(_):
         else:
             if not model.load()[0]:
                 raise Exception("[!] Train a model first, then run test mode")
-            #if str.lower(str(cfg["z_map"])) == "true":
-              #model.train_z_map(FLAGS)
-            model.sample_HoloGAN(FLAGS)
+            if str.lower(str(cfg["z_map"])) == "true":
+              model.train_z_map(FLAGS)
+            #model.sample_HoloGAN(FLAGS)
 
 
 if __name__ == '__main__':

@@ -175,8 +175,8 @@ class HoloGAN(object):
 
         vars = tf.trainable_variables()
         z_var = [var for var in vars if 'z_weight' in var.name]
-        #print('z var: ', self.sess.run(z_var))
-        #raise Exception('hej')
+        print('z var: ', self.sess.run(z_var))
+        raise Exception('hej')
         
         mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
         target_image_difference = mae(sample_image[0], self.G)

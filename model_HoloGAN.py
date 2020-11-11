@@ -183,14 +183,14 @@ class HoloGAN(object):
         regularizer = tf.abs(tf.norm(z_var) - np.sqrt(cfg['z_dim']))
         regularizer = tf.cast(regularizer, dtype=tf.float32)
         z_map_loss = target_image_difference + regularizer
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.001, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.009, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
         tf.global_variables_initializer().run()
 
 
 
         
 
-        num_optimization_steps = 500
+        num_optimization_steps = 1000
         losses = []
         print('START')
         feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_image}
@@ -333,7 +333,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 2) == 1:
+                if np.mod(counter, 100) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,

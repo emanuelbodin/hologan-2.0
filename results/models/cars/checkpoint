@@ -1,5 +1,0 @@
-model_checkpoint_path: "HoloGAN.model-401"
-all_model_checkpoint_paths: "HoloGAN.model-101"
-all_model_checkpoint_paths: "HoloGAN.model-201"
-all_model_checkpoint_paths: "HoloGAN.model-301"
-all_model_checkpoint_paths: "HoloGAN.model-401"

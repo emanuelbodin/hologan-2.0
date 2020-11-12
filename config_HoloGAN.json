@@ -1,6 +1,6 @@
 {
   "z_map": "true",
-  "sample": "false",
+  "sample": "true",
   "z_map_image_path": "../datasets/sample",
   "image_path": "../datasets/cars",
   "gpu": "0",

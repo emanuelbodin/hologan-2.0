@@ -82,7 +82,7 @@ def main(_):
                 raise Exception("[!] Train a model first, then run test mode")
             if str.lower(str(cfg["z_map"])) == "true":
               model.train_z_map(FLAGS)
-            if str.lower(str(cfg["sample"])) == "true":
+            elif str.lower(str(cfg["sample"])) == "true":
                 model.sample_HoloGAN(FLAGS)
 
 

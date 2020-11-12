@@ -10,6 +10,7 @@ import json
 import shutil
 import imageio
 import numpy as np
+from PIL import Image
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -145,7 +146,6 @@ class HoloGAN(object):
     
     def train_z_map(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-        #z_var = tf.Variable(sample_z, name="z_var")
         sample_view = self.gen_view_func(cfg['batch_size'],
                                                 cfg['ele_low'], cfg['ele_high'],
                                                 cfg['azi_low'], cfg['azi_high'],
@@ -156,13 +156,26 @@ class HoloGAN(object):
                                                 with_translation=False,
                                                 with_scale=to_bool(str(cfg['with_translation'])))
         sample_file = self.z_map_image[0]
-        sample_image = get_image(sample_file,
+        sample_img = get_image(sample_file,
                                     input_height=self.input_height,
                                     input_width=self.input_width,
                                     resize_height=self.output_height,
                                     resize_width=self.output_width,
                                     crop=False)
-        sample_image = sample_image.reshape(1, 64,64,3).astype('float32')
+        sample_img = sample_img.reshape(1, 64,64,3).astype('float32')
+
+        vars = tf.trainable_variables()
+        z_var = [var for var in vars if 'z_weight' in var.name]
+        print('z var: ', self.sess.run(z_var))
+        #raise Exception('hej')
+        
+        mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
+        target_image_difference = mae(sample_img[0], self.G)
+        regularizer = tf.abs(tf.norm(z_var) - np.sqrt(cfg['z_dim']))
+        regularizer = tf.cast(regularizer, dtype=tf.float32)
+        z_map_loss = target_image_difference + regularizer
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.001, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
+        tf.global_variables_initializer().run()
 
         could_load, checkpoint_counter = self.load()
         if could_load:
@@ -172,59 +185,37 @@ class HoloGAN(object):
             print(" [!] Load failed...")
             return
 
-
-        vars = tf.trainable_variables()
-        z_var = [var for var in vars if 'z_weight' in var.name]
-        print('z var: ', self.sess.run(z_var))
-        raise Exception('hej')
-        
-        mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
-        target_image_difference = mae(sample_image[0], self.G)
-        regularizer = tf.abs(tf.norm(z_var) - np.sqrt(cfg['z_dim']))
-        regularizer = tf.cast(regularizer, dtype=tf.float32)
-        z_map_loss = target_image_difference + regularizer
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.009, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
-        tf.global_variables_initializer().run()
-
-
-
-        
-
-        num_optimization_steps = 1000
+        num_optimization_steps = 500
         losses = []
         print('START')
-        feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_image}
-        ren_img = self.sess.run(self.G, feed_dict=feed)
-        ren_img = inverse_transform(ren_img)
-        ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
-        imageio.imwrite(
-          os.path.join(
-            self.sample_dir, "{0}_samples_{0}.jpg".format(1, 1)),
-          ren_img[0])
-        imageio.imwrite(
-          os.path.join(
-            self.sample_dir, "{0}_test_imng_{0}.jpg".format(1, 1)),
-          sample_image[0])
+        feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_img}
+        original_img = self.sess.run(self.G, feed_dict=feed)
+        original_img = inverse_transform(original_img)
+        original_img = np.clip(255 * original_img, 0, 255).astype(np.uint8)
+        sample_img_obj = inverse_transform(sample_img)
+        sample_img_obj = np.clip(255 * sample_img_obj, 0, 255).astype(np.uint8)
+        original_img_obj = Image.fromarray(original_img[0], 'RGB')
+        sample_img_obj = Image.fromarray(sample_img_obj[0], 'RGB')
+        new_image = Image.new('RGB',(3*original_img_obj.size[1], original_img_obj.size[1]), (250,250,250))
+
+        new_image.paste(original_img_obj,(0,0))
+        new_image.paste(sample_img_obj,(original_img_obj.size[1],0))
 
         for step in range(num_optimization_steps):
           feed_z_map = { self.view_in: sample_view, self.z: sample_z}
           _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
           print('loss: ', loss)
-
-          
-          #print('shape: ', gen_img.shape)
         
         print()
         feed = { self.view_in: sample_view, self.z: sample_z}
-        ren_img = self.sess.run(self.G, feed_dict=feed)
-        ren_img = inverse_transform(ren_img)
-        ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
-        imageio.imwrite(
-          os.path.join(
-            self.sample_dir, "{0}_samples_{0}.jpg".format(2, 2)),
-          ren_img[0])
+        reconstructed_img = self.sess.run(self.G, feed_dict=feed)
+        reconstructed_img = inverse_transform(reconstructed_img)
+        reconstructed_img = np.clip(255 * reconstructed_img, 0, 255).astype(np.uint8)
 
         #print(self.sess.run(z_var))
+        reconstructed_img_obj = Image.fromarray(reconstructed_img[0], 'RGB')
+        new_image.paste(reconstructed_img_obj,(original_img_obj.size[1]*2,0))
+        new_image.save(os.path.join(self.sample_dir, "result.jpg"),"JPEG")
 
     def train_HoloGAN(self, config):
        
@@ -333,7 +324,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 100) == 1:
+                if np.mod(counter, 3000) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,
@@ -361,12 +352,7 @@ class HoloGAN(object):
                               (d_loss, g_loss))
 
     def sample_HoloGAN(self, config):
-        if str.lower(str(cfg["z_map"])) == "true":
-            #sample_z = self.z_map
-            sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-
-        else:
-            sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+        sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
             
         could_load, checkpoint_counter = self.load()
         if could_load:
@@ -388,8 +374,8 @@ class HoloGAN(object):
             step = 5
         else:
             low = 0
-            high = 10
-            step = 2
+            high = 1
+            step = 1
 
         for i in range(low, high, step):
             if config.rotate_azimuth:
@@ -484,7 +470,7 @@ class HoloGAN(object):
 
     def generator_AdaIN(self, z, view_in, reuse=False):
         batch_size = tf.shape(z)[0]
-        ones = tf.ones([cfg['z_dim'], cfg['z_dim']], tf.float32)
+        ones = tf.eye(cfg['z_dim'], dtype=tf.float32)
         z_w = tf.Variable(ones, name="z_weight")
         z = tf.matmul(z, z_w)
 

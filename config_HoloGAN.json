@@ -1,12 +1,8 @@
 {
   "z_map": "truee",
   "sample": "true",
-<<<<<<< HEAD
-  "z_map_image_path": "../datasets/sample",
-=======
   "sample_from_z": "true",
   "z_map_image_path": "../datasets/cars_sample",
->>>>>>> a69fdef1b4dc28e4164e6c55b7bfb50c13a236ae
   "image_path": "../datasets/chairs",
   "gpu": "0",
   "batch_size": 32,

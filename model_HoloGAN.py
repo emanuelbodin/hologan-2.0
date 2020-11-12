@@ -274,13 +274,19 @@ class HoloGAN(object):
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
             g_lr = g_lr if epoch < cfg['epoch_step'] else g_lr * (
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
+            random.shuffle(self.data)
             batch_idxs = min(
                 len(self.data), config.train_size) // cfg['batch_size']
             batch_idxs = int(batch_idxs)
-            for idx in range(0, 2000):
+            for idx in range(0, batch_idxs):
+                batch_files = self.data[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
               
-                batch_images = sample_random_batch(25, self.data)
-
+                batch_images = [get_image(batch_file,
+                                          input_height=self.input_height,
+                                          input_width=self.input_width,
+                                          resize_height=self.output_height,
+                                          resize_width=self.output_width,
+                                          crop=self.crop) for batch_file in batch_files]
 
                 batch_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
                 batch_view = self.gen_view_func(cfg['batch_size'],

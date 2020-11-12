@@ -166,7 +166,7 @@ class HoloGAN(object):
 
         vars = tf.trainable_variables()
         z_var = [var for var in vars if 'z_weight' in var.name]
-        print('z var: ', self.sess.run(z_var))
+        #print('z var: ', self.sess.run(z_var))
         #raise Exception('hej')
         
         mae = tf.keras.losses.MeanAbsoluteError(reduction="sum")
@@ -185,7 +185,7 @@ class HoloGAN(object):
             print(" [!] Load failed...")
             return
 
-        num_optimization_steps = 500
+        num_optimization_steps = 200
         losses = []
         print('START')
         feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_img}
@@ -216,6 +216,9 @@ class HoloGAN(object):
         reconstructed_img_obj = Image.fromarray(reconstructed_img[0], 'RGB')
         new_image.paste(reconstructed_img_obj,(original_img_obj.size[1]*2,0))
         new_image.save(os.path.join(self.sample_dir, "result.jpg"),"JPEG")
+
+        if str.lower(str(cfg["sample_from_z"])) == "true":
+          self.sample_from_z(config, sample_z)
 
     def train_HoloGAN(self, config):
        
@@ -271,19 +274,13 @@ class HoloGAN(object):
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
             g_lr = g_lr if epoch < cfg['epoch_step'] else g_lr * (
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
-            random.shuffle(self.data)
             batch_idxs = min(
                 len(self.data), config.train_size) // cfg['batch_size']
             batch_idxs = int(batch_idxs)
-            for idx in range(0, batch_idxs):
-                batch_files = self.data[idx * cfg['batch_size']:(idx + 1) * cfg['batch_size']]
+            for idx in range(0, 2000):
               
-                batch_images = [get_image(batch_file,
-                                          input_height=self.input_height,
-                                          input_width=self.input_width,
-                                          resize_height=self.output_height,
-                                          resize_width=self.output_width,
-                                          crop=self.crop) for batch_file in batch_files]
+                batch_images = sample_random_batch(25, self.data)
+
 
                 batch_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
                 batch_view = self.gen_view_func(cfg['batch_size'],
@@ -396,6 +393,58 @@ class HoloGAN(object):
                                                  with_scale=to_bool(str(cfg['with_translation'])))
 
             feed_eval = {self.z: sample_z,
+                         self.view_in: sample_view}
+
+            samples = self.sess.run(self.G, feed_dict=feed_eval)
+            ren_img = inverse_transform(samples)
+            ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+          
+            try:
+                imageio.imwrite(
+                    os.path.join(
+                        self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
+                    merge(ren_img, [cfg['batch_size'] // 4, 4]))
+            except:
+                imageio.imwrite(
+                    os.path.join(
+                        self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
+                    ren_img[0])
+# =======================================================================================================================
+
+    def sample_from_z(self, config, z):
+        counter = 0
+        if config.rotate_azimuth:
+            low = cfg['azi_low']
+            high = cfg['azi_high']
+            step = 45
+        elif config.rotate_elevation:
+            low = cfg['ele_low']
+            high = cfg['ele_high']
+            step = 5
+        else:
+            low = 0
+            high = 90
+            step = 30
+
+        for i in range(low, high, step):
+            if config.rotate_azimuth:
+                sample_view = np.tile(
+                    np.array([i * math.pi / 180.0, 0 * math.pi / 180.0, 1.0, 0, 0, 0]), (cfg['batch_size'], 1))
+            elif config.rotate_azimuth:
+                sample_view = np.tile(
+                    np.array([270 * math.pi / 180.0, (90 - i) * math.pi / 180.0, 1.0, 0, 0, 0]), (cfg['batch_size'], 1))
+            else:
+                sample_view = self.gen_view_func(cfg['batch_size'],
+                                                 cfg['ele_low'], cfg['ele_high'],
+                                                 cfg['azi_low'], cfg['azi_high'],
+                                                 cfg['scale_low'], cfg['scale_high'],
+                                                 cfg['x_low'], cfg['x_high'],
+                                                 cfg['y_low'], cfg['y_high'],
+                                                 cfg['z_low'], cfg['z_high'],
+                                                 with_translation=False,
+                                                 with_scale=to_bool(str(cfg['with_translation'])))
+
+            feed_eval = {self.z: z,
                          self.view_in: sample_view}
 
             samples = self.sess.run(self.G, feed_dict=feed_eval)

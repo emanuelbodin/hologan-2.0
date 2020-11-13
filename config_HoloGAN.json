@@ -3,7 +3,7 @@
   "sample": "true",
   "sample_from_z": "true",
   "z_map_image_path": "../datasets/cars_sample",
-  "image_path": "../datasets/chairs",
+  "image_path": "../datasets/shapes3d",
   "gpu": "0",
   "batch_size": 32,
   "max_epochs": 50,

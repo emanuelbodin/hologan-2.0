@@ -24,6 +24,8 @@ IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
 SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
 # ----------------------------------------------------------------------------
+def stop():
+  raise Exception('STOPPED')
 
 class HoloGAN(object):
     def __init__(self, sess, input_height=108, input_width=108, crop=True,
@@ -549,6 +551,7 @@ class HoloGAN(object):
                                     initializer=tf.random_normal_initializer(stddev=0.02))
                 w_tile = tf.tile(tf.expand_dims(
                     w, 0), (batch_size, 1, 1, 1, 1))
+                    
                 s0, b0 = self.z_mapping_function(z, self.gf_dim * 8, 'g_z0')
                 h0 = AdaIn(w_tile, s0, b0)
                 h0 = tf.nn.relu(h0)

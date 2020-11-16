@@ -289,7 +289,13 @@ class HoloGAN(object):
                                           resize_height=self.output_height,
                                           resize_width=self.output_width,
                                           crop=self.crop) for batch_file in batch_files]
-
+                """
+                img = batch_images[0]
+                img = np.clip(255 * batch_images[0], 0, 255).astype(np.uint8)
+                img = Image.fromarray(img, 'RGB')
+                img.show()
+                raise Exception('å')
+                """
                 batch_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
                 batch_view = self.gen_view_func(cfg['batch_size'],
                                                 cfg['ele_low'], cfg['ele_high'],
@@ -329,7 +335,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 500) == 1:
+                if np.mod(counter, 3000) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,

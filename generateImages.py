@@ -3,9 +3,9 @@ from PIL import Image
 import os
 
 data = load_dataset()
-counter = 3001
-for i in range(500):
-    batch = sample_random_batch(100, data)
+counter = 0
+for i in range(1):
+    batch = sample_random_batch(5, data)
     for img in batch:
         img = np.clip(255 * img, 0, 255).astype(np.uint8)
         img = Image.fromarray(img, 'RGB')

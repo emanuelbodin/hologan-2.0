@@ -4,7 +4,7 @@ import h5py
 
 def load_dataset():
   # load dataset
-  dataset = h5py.File('../3dshapes.h5', 'r')
+  dataset = h5py.File('../datasets/3dshapes.h5', 'r')
   print(dataset.keys())
   images = dataset['images']  # array shape [480000,64,64,3], uint8 in range(256)
   labels = dataset['labels']  # array shape [480000,6], float64

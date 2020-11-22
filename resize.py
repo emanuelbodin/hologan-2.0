@@ -16,18 +16,18 @@ import os
 #import os
 import cv2
 W=256
-path = r"../datasets/archive/cars169"
-path2 = r"../datasets/cars169"
+path = r"../datasets/clevr_/test"
+path2 = r"../datasets/clevr"
 
 print('start')
 counter = 0
 for filename in os.listdir(path):
-    if filename.endswith('.jpg'):
-        oriimg = cv2.imread(path+'/'+filename)
-        #height, width, depth = oriimg.shape
-        #imgScale = W/width
-        #newX,newY = oriimg.shape[1]*imgScale, oriimg.shape[0]*imgScale
-        newimg = cv2.resize(oriimg,(int(64),int(64)))
-        cv2.imwrite(str(path2 + '/' + filename),newimg)        
-        print('Image saved', counter)
-        counter = counter + 1
+    #if filename.endswith('.jpg'):
+    oriimg = cv2.imread(path+'/'+filename)
+    #height, width, depth = oriimg.shape
+    #imgScale = W/width
+    #newX,newY = oriimg.shape[1]*imgScale, oriimg.shape[0]*imgScale
+    newimg = cv2.resize(oriimg,(int(64),int(64)))
+    cv2.imwrite(str(path2 + '/' + str(counter) + '.jpg'),newimg)        
+    print('Image saved', counter)
+    counter = counter + 1

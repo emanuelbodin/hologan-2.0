@@ -400,7 +400,7 @@ class HoloGAN(object):
             if config.rotate_azimuth:
                 sample_view = np.tile(
                     np.array([i * math.pi / 180.0, 0 * math.pi / 180.0, 1.0, 0, 0, 0]), (cfg['batch_size'], 1))
-                print(sample_view)
+               #print(sample_view)
             elif config.rotate_elevation:
                 sample_view = np.tile(
                     np.array([270 * math.pi / 180.0, (90 - i) * math.pi / 180.0, 1.0, 0, 0, 0]), (cfg['batch_size'], 1))
@@ -523,10 +523,7 @@ class HoloGAN(object):
         with tf.compat.v1.variable_scope("discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
-            print('df', self.df_dim)
-            raise Exception('å')
             h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
-            print('h0', h0.shape)
             h1 = lrelu(instance_norm(conv2d_specNorm(
                 h0, self.df_dim * 2, name='d_h1_conv'), 'd_in1'))
             h2 = lrelu(instance_norm(conv2d_specNorm(

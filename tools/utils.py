@@ -39,6 +39,16 @@ def get_image(image_path, input_height, input_width,
     image = load_webp(image_path)
     if (image.shape[1] == resize_height):
       crop = False
+    """
+    print(image)
+    img = Image.fromarray(image, 'RGB')
+    img.show()
+    img = transform(image, input_height, input_width, resize_height, resize_width, crop)
+    img = np.clip(255 * img + 127.5, 0, 255).astype(np.uint8)
+    img = Image.fromarray(img, 'RGB')
+    img.show()
+    raise Exception('å')
+    """
     return transform(image, input_height, input_width, resize_height, resize_width, crop)
 
 

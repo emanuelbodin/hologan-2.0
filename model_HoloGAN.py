@@ -11,7 +11,6 @@ import shutil
 import imageio
 import numpy as np
 from PIL import Image
-from tensorflow_docs.vis import embed
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -146,14 +145,7 @@ class HoloGAN(object):
 
         self.saver = tf.train.Saver()        
 
-    # Given a set of images, show an animation.
-    def animate(self, images):
-      images = np.array(images)
-      print(images.shape)
-      converted_images = np.clip(images * 255, 0, 255).astype(np.uint8)
-      imageio.mimsave('./animation.gif', converted_images)
-      return embed.embed_file('./animation.gif')
-        
+    
     def train_z_map(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
         sample_view = self.gen_view_func(cfg['batch_size'],
@@ -372,7 +364,7 @@ class HoloGAN(object):
 
     def sample_HoloGAN(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-        images = []
+            
         could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
@@ -386,22 +378,21 @@ class HoloGAN(object):
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
-            step = 10
+            step = 45
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
             step = 5
         else:
             low = 0
-            high = 10
+            high = 1
             step = 1
 
         for i in range(low, high, step):
             if config.rotate_azimuth:
                 sample_view = np.tile(
                     np.array([i * math.pi / 180.0, 0 * math.pi / 180.0, 1.0, 0, 0, 0]), (cfg['batch_size'], 1))
-               #print(sample_view)
-            elif config.rotate_elevation:
+            elif config.rotate_azimuth:
                 sample_view = np.tile(
                     np.array([270 * math.pi / 180.0, (90 - i) * math.pi / 180.0, 1.0, 0, 0, 0]), (cfg['batch_size'], 1))
             else:
@@ -412,16 +403,16 @@ class HoloGAN(object):
                                                  cfg['x_low'], cfg['x_high'],
                                                  cfg['y_low'], cfg['y_high'],
                                                  cfg['z_low'], cfg['z_high'],
-                                                 with_translation=to_bool(str(cfg['with_translation'])),
-                                                 with_scale=to_bool(str(cfg['with_scale'])))
+                                                 with_translation=False,
+                                                 with_scale=to_bool(str(cfg['with_translation'])))
 
             feed_eval = {self.z: sample_z,
                          self.view_in: sample_view}
 
             samples = self.sess.run(self.G, feed_dict=feed_eval)
-            ren_img1 = inverse_transform(samples)
-            ren_img = np.clip(255 * ren_img1, 0, 255).astype(np.uint8)
-            images.append(ren_img1[0])
+            ren_img = inverse_transform(samples)
+            ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+          
             try:
                 imageio.imwrite(
                     os.path.join(
@@ -432,7 +423,6 @@ class HoloGAN(object):
                     os.path.join(
                         self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     ren_img[0])
-        self.animate(np.stack(images))
 # =======================================================================================================================
 
     def sample_from_z(self, config, z):
@@ -523,6 +513,7 @@ class HoloGAN(object):
         with tf.compat.v1.variable_scope("discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
+
             h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
             h1 = lrelu(instance_norm(conv2d_specNorm(
                 h0, self.df_dim * 2, name='d_h1_conv'), 'd_in1'))
@@ -530,6 +521,7 @@ class HoloGAN(object):
                 h1, self.df_dim * 4, name='d_h2_conv'), 'd_in2'))
             h3 = lrelu(instance_norm(conv2d_specNorm(
                 h2, self.df_dim * 8, name='d_h3_conv'), 'd_in3'))
+
             # Returning logits to determine whether the images are real or fake
             h4 = linear(slim.flatten(h3), 1, 'd_h4_lin')
 
@@ -568,11 +560,10 @@ class HoloGAN(object):
                     
                 s0, b0 = self.z_mapping_function(z, self.gf_dim * 8, 'g_z0')
                 h0 = AdaIn(w_tile, s0, b0)
-                
                 h0 = tf.nn.relu(h0)
+
             h1 = deconv3d(h0, [batch_size, s_h8, s_w8, s_d8,
                                self.gf_dim * 2], k_h=3, k_d=3, k_w=3, name='g_h1')
-            
             s1, b1 = self.z_mapping_function(z, self.gf_dim * 2, 'g_z1')
             h1 = AdaIn(h1, s1, b1)
             h1 = tf.nn.relu(h1)
@@ -581,7 +572,8 @@ class HoloGAN(object):
                                self.gf_dim * 1], k_h=3, k_d=3, k_w=3, name='g_h2')
             s2, b2 = self.z_mapping_function(z, self.gf_dim * 1, 'g_z2')
             h2 = AdaIn(h2, s2, b2)
-            h2 = tf.nn.relu(h2)            
+            h2 = tf.nn.relu(h2)
+
             # =============================================================================================================
             h2_rotated = tf_3D_transform(h2, view_in, 16, 16)
             h2_rotated = transform_voxel_to_match_image(h2_rotated)
@@ -610,7 +602,6 @@ class HoloGAN(object):
                           k_h=4, k_w=4, d_h=1, d_w=1, name='g_h6')
 
             output = tf.nn.tanh(h6, name="output")
-            
             return output
 
 # =======================================================================================================================

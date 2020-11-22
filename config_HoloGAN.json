@@ -25,8 +25,8 @@
   "lambda_latent": 0.0,
   "ele_low": 70,
   "ele_high": 110,
-  "azi_low": 0,
-  "azi_high": 359,
+  "azi_low": -360,
+  "azi_high": 360,
   "scale_low": 1.0,
   "scale_high": 1.0,
   "x_low": 0,
@@ -35,7 +35,7 @@
   "y_high": 0,
   "z_low": 0,
   "z_high": 0,
-  "with_translation": "false",
+  "with_translation": "true",
   "with_scale": "false",
   "output_dir": "./HoloGAN"
 }

@@ -170,6 +170,7 @@ def tf_rotation_around_grid_centroid(view_params, shapenet_viewer = False):
 
 
     transformation_matrix = tf.matmul(batch_Rot_Z, batch_Rot_Y)
+    print('konst', tf.shape(view_params)[1])
     if tf.shape(view_params)[1] == 2:
         return transformation_matrix
     else:

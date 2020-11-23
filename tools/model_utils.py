@@ -31,4 +31,3 @@ def transform_image_to_match_voxel(tensor):
 def np_transform_tensor_to_image (tensor):
     t = np.transpose(tensor, [0, 2, 1, 3])
     return t
-

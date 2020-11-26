@@ -150,6 +150,9 @@ class HoloGAN(object):
     def animate(self, images):
       images = np.array(images)
       converted_images = np.clip(images * 255, 0, 255).astype(np.uint8)
+      if (True):
+        images_2 = np.flip(converted_images, 0)
+        converted_images = np.append(converted_images, images_2, axis=0)
       imageio.mimsave('./animation.gif', converted_images)
       return embed.embed_file('./animation.gif')
         
@@ -531,12 +534,63 @@ class HoloGAN(object):
                 h2, self.df_dim * 8, name='d_h3_conv'), 'd_in3'))
             # Returning logits to determine whether the images are real or fake
             h4 = linear(slim.flatten(h3), 1, 'd_h4_lin')
-
             # Recognition network for latent variables has an additional layer
-            encoder = lrelu((linear(slim.flatten(h3), 128, 'd_latent')))
+            encoder = lrelu((linear(slim.flatten(h3), cfg['z_dim'], 'd_latent')))
             cont_vars = linear(encoder, cont_dim, "d_latent_prediction")
-
             return tf.nn.sigmoid(h4), h4, tf.nn.tanh(cont_vars)
+# =======================================================================================================================
+    def discriminator_IN_style_res128(self, image,  cont_dim, reuse=False):
+      batch_size = tf.shape(image)[0]
+      if str(cfg["add_D_noise"]) == "true":
+          image = image + tf.random_normal(tf.shape(image), stddev=0.02)
+
+      with tf.variable_scope("discriminator") as scope:
+          if reuse:
+              scope.reuse_variables()
+
+          h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
+
+          h1 = conv2d_specNorm(h0, self.df_dim * 2, name='d_h1_conv')
+          h1, h1_mean, h1_var = instance_norm(h1, 'd_in1', True)
+          h1_mean = tf.reshape(h1_mean, (batch_size, self.df_dim * 2))
+          h1_var = tf.reshape(h1_var, (batch_size, self.df_dim * 2))
+          d_h1_style = tf.concat([h1_mean, h1_var], 0)
+          d_h1, d_h1_logits = self.linear_classifier(d_h1_style, "d_h1_class")
+          h1 = lrelu(h1)
+
+          h2 = conv2d_specNorm(h1, self.df_dim * 4, name='d_h2_conv')
+          h2, h2_mean, h2_var = instance_norm(h2, 'd_in2', True)
+          h2_mean = tf.reshape(h2_mean, (batch_size, self.df_dim * 4))
+          h2_var = tf.reshape(h2_var, (batch_size, self.df_dim * 4))
+          d_h2_style = tf.concat([h2_mean, h2_var], 0)
+          d_h2, d_h2_logits = self.linear_classifier(d_h2_style, "d_h2_class")
+          h2 = lrelu(h2)
+
+          h3 = conv2d_specNorm(h2, self.df_dim * 8, name='d_h3_conv')
+          h3, h3_mean, h3_var = instance_norm(h3, 'd_in3', True)
+          h3_mean = tf.reshape(h3_mean, (batch_size, self.df_dim * 8))
+          h3_var = tf.reshape(h3_var, (batch_size, self.df_dim * 8))
+          d_h3_style = tf.concat([h3_mean, h3_var], 0)
+          d_h3, d_h3_logits = self.linear_classifier(d_h3_style, "d_h3_class")
+          h3 = lrelu(h3)
+
+          h4 = conv2d_specNorm(h3, self.df_dim * 16, name='d_h4_conv')
+          h4, h4_mean, h4_var = instance_norm(h4, 'd_in4', True)
+          h4_mean = tf.reshape(h4_mean, (batch_size, self.df_dim * 16))
+          h4_var = tf.reshape(h4_var, (batch_size, self.df_dim * 16))
+          d_h4_style = tf.concat([h4_mean, h4_var], 0)
+          d_h4, d_h4_logits = self.linear_classifier(d_h4_style, "d_h4_class")
+          h4 = lrelu(h4)
+
+          #Returning logits to determine whether the images are real or fake
+          h5 = linear(slim.flatten(h4), 1, 'd_h5_lin')
+
+          # Recognition network for latent variables has an additional layer
+          encoder = lrelu((linear(slim.flatten(h4), 128, 'd_latent')))
+          cont_vars = linear(encoder, cont_dim, "d_latent_prediction")
+
+          return tf.nn.sigmoid(h5), h5, tf.nn.tanh(cont_vars), d_h1_logits, d_h2_logits, d_h3_logits, d_h4_logits
+# =======================================================================================================================
 
     def generator_AdaIN(self, z, view_in, reuse=False):
         batch_size = tf.shape(z)[0]

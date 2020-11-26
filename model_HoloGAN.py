@@ -665,6 +665,72 @@ class HoloGAN(object):
             output = tf.nn.tanh(h6, name="output")
             
             return output
+# =======================================================================================================================
+    def generator_AdaIN_res128(self, z, view_in, reuse=False):
+        batch_size = tf.shape(z)[0]
+        s_h, s_w, s_d = 64, 64, 64
+        s_h2, s_w2, s_d2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2), conv_out_size_same(s_d, 2)
+        s_h4, s_w4, s_d4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2), conv_out_size_same(s_d2, 2)
+        s_h8, s_w8, s_d8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2), conv_out_size_same(s_d4, 2)
+        s_h16, s_w16, s_d16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2), conv_out_size_same(s_d8, 2)
+
+        with tf.variable_scope("generator") as scope:
+            if reuse:
+                scope.reuse_variables()
+            #A learnt constant "template"
+            with tf.variable_scope('g_w_constant'):
+                w = tf.get_variable('w', [s_h16, s_w16, s_d16, self.gf_dim * 8], initializer=tf.random_normal_initializer(stddev=0.02))
+                w_tile = tf.tile(tf.expand_dims(w, 0), (batch_size, 1, 1, 1, 1)) #Repeat the learnt constant features to make a batch
+                s0, b0 = self.z_mapping_function(z, self.gf_dim * 8, 'g_z0')
+                h0 = AdaIn(w_tile, s0, b0)
+                h0 = lrelu(h0)
+
+            h1= deconv3d(h0, [batch_size, s_h8, s_w8, s_d8, self.gf_dim * 4], k_h=3, k_w=3, k_d=3, name='g_h1')
+            s1, b1 = self.z_mapping_function(z, self.gf_dim * 4, 'g_z1')
+            h1 = AdaIn(h1, s1, b1)
+            h1 = lrelu(h1)
+
+            h2 = deconv3d(h1, [batch_size, s_h4, s_w4, s_d4, self.gf_dim * 2],  k_h=3, k_w=3, k_d=3, name='g_h2')
+            s2, b2 = self.z_mapping_function(z, self.gf_dim * 2, 'g_z2')
+            h2 = AdaIn(h2, s2, b2)
+            h2 = lrelu(h2)
+
+            #=============================================================================================================
+            h2_rotated = tf_3D_transform(h2, view_in, 16, 16)
+            h2_rotated = transform_voxel_to_match_image(h2_rotated)
+
+            h2_proj1 = deconv3d(h2_rotated, [batch_size, s_h4, s_w4, s_d4, self.gf_dim * 1], k_h=3, k_w=3, k_d=3, d_h=1, d_w=1, d_d=1, name='g_h2_proj1')
+            h2_proj1 = lrelu( h2_proj1)
+
+            h2_proj2 = deconv3d(h2_proj1, [batch_size, s_h4, s_w4, s_d4, self.gf_dim ], k_h=3, k_w=3, k_d=3, d_h=1, d_w=1, d_d=1,  name='g_h2_proj2')
+            h2_proj2 = lrelu( h2_proj2)
+            # =============================================================================================================
+            # Collapsing depth dimension
+            h2_2d = tf.reshape(h2_proj2, [batch_size, s_h4, s_w4, s_d4 * self.gf_dim])
+            # 1X1 convolution
+            h3 = deconv2d(h2_2d, [batch_size, s_h4, s_w4, self.gf_dim * 16 // 2], k_h=1, k_w=1, d_h=1, d_w=1, name='g_h3')
+            h3 = lrelu(h3)
+            # =============================================================================================================
+
+            h4  = deconv2d(h3, [batch_size, s_h2, s_w2, self.gf_dim * 4],  k_h=4, k_w=4, name='g_h4')
+            s4, b4 = self.z_mapping_function(z, self.gf_dim * 4, 'g_z4')
+            h4  = AdaIn(h4, s4, b4)
+            h4 = lrelu(h4)
+
+            h5 = deconv2d(h4, [batch_size, s_h, s_w, self.gf_dim], k_h=4, k_w=4, name='g_h5')
+            s5, b5 = self.z_mapping_function(z, self.gf_dim, 'g_z5')
+            h5 = AdaIn(h5, s5, b5)
+            h5 = lrelu(h5)
+
+            h6 = deconv2d(h5, [batch_size, s_h * 2, s_w * 2, self.gf_dim // 2], k_h=4, k_w=4, name='g_h6')
+            s6, b6 = self.z_mapping_function(z, self.gf_dim // 2, 'g_z6')
+            h6 = AdaIn(h6, s6, b6)
+            h6 = lrelu(h6)
+
+            h7 = deconv2d(h6, [batch_size, s_h * 2, s_w * 2, self.c_dim], k_h=4, k_w=4, d_h=1, d_w=1, name='g_h7')
+
+            output = tf.nn.tanh(h7, name="output")
+            return output
 
 # =======================================================================================================================
     def save(self, step):

@@ -248,9 +248,7 @@ def deconv3d(input_, output_shape,
 
         biases = tf.compat.v1.get_variable(
             'biases', [output_shape[-1]], initializer=tf.constant_initializer(0.0))
-        print('shape', tf.shape(deconv))
         deconv = tf.reshape(tf.nn.bias_add(deconv, biases), tf.shape(deconv))
-        print('deconv', deconv.shape)
         if with_w:
             return deconv, w, biases
         else:

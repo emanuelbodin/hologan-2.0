@@ -203,7 +203,6 @@ def deconv2d(input_, output_shape,
         # filter : [height, width, output_channels, in_channels]
         w = tf.compat.v1.get_variable('weights', [k_h, k_w, output_shape[-1], input_.get_shape()[-1]],
                             initializer=tf.random_normal_initializer(stddev=stddev))
-        print('w3', w.shape)
         deconv = tf.nn.conv2d_transpose(
             input_, w, output_shape=output_shape, strides=[1, d_h, d_w, 1])
         deconv.set_shape([None] + output_shape[1:])
@@ -250,9 +249,7 @@ def deconv3d(input_, output_shape,
 
         biases = tf.compat.v1.get_variable(
             'biases', [output_shape[-1]], initializer=tf.constant_initializer(0.0))
-        print('shape', tf.shape(deconv))
         deconv = tf.reshape(tf.nn.bias_add(deconv, biases), tf.shape(deconv))
-        print('deconv', deconv.shape)
         if with_w:
             return deconv, w, biases
         else:

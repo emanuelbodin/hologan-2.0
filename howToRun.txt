@@ -1,3 +1,7 @@
 How to run:
 
+<<<<<<< HEAD
 python main.py ./config_HoloGAN.json --dataset celeba --input_fname_pattern "*.jpg" --train_size 202598 --crop input_height 64--output_height 64 --train
+=======
+python main.py ./config_HoloGAN.json --dataset celeba --input_fname_pattern "*.jpg" --train_size 15000 --crop input_height 64--output_height 64 --train
+>>>>>>> c0e3261202e4f85ad62e9fa495d00ee57297cdb6

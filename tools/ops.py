@@ -77,7 +77,8 @@ def instance_norm(input, name="instance_norm", return_mean=False):
 
 
 def l2_norm(v, eps=1e-12):
-    return v / (tf.reduce_sum(v ** 2) ** 0.5 + eps)
+    #return v / (tf.reduce_sum(v ** 2) ** 0.5 + eps)
+    return v / (tf.sqrt(tf.reduce_sum(tf.square(v))) + eps)
 
 
 def spectral_norm(w, iteration=1, u_weight=None):

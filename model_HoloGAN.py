@@ -282,10 +282,13 @@ class HoloGAN(object):
         d_lr = cfg['d_eta']
         g_lr = cfg['g_eta']
         for epoch in range(cfg['max_epochs']):
+            
             d_lr = d_lr if epoch < cfg['epoch_step'] else d_lr * (
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
             g_lr = g_lr if epoch < cfg['epoch_step'] else g_lr * (
                 cfg['max_epochs'] - epoch) / (cfg['max_epochs'] - cfg['epoch_step'])
+            
+
             random.shuffle(self.data)
             batch_idxs = min(
                 len(self.data), config.train_size) // cfg['batch_size']
@@ -301,7 +304,7 @@ class HoloGAN(object):
                                           crop=self.crop) for batch_file in batch_files]
                 """
                 img = batch_images[0]
-                img = np.clip(255 * batch_images[0] + 127.5, 0, 255).astype(np.uint8)
+                img = np.clip(255 * batch_images[0], 0, 255).astype(np.uint8)
                 img = Image.fromarray(img, 'RGB')
                 img.show()
                 raise Exception('å')
@@ -345,7 +348,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 5000) == 1:
+                if np.mod(counter, 2000) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,

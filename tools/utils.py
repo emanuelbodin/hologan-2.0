@@ -49,7 +49,8 @@ def get_image(image_path, input_height, input_width,
     img.show()
     raise Exception('å')
     """
-    return transform(image, input_height, input_width, resize_height, resize_width, crop)
+    #return transform(image, input_height, input_width, resize_height, resize_width, crop)
+    return np.array(image) * 1/255.
 
 
 def load_webp(img_path):

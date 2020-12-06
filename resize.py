@@ -16,8 +16,8 @@ import os
 #import os
 import cv2
 W=256
-path = r"../lsun/data"
-path2 = r"../datasets/lsun"
+path = r"../datasets/cars_test/test"
+path2 = r"../datasets/cars_carvana_test"
 
 print('start')
 counter = 0

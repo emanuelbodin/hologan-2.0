@@ -47,7 +47,6 @@ flags.DEFINE_boolean("rotate_elevation", False,
                      "Sample images with varying elevation")
 FLAGS = flags.FLAGS
 
-
 def main(_):
     # pp.pprint(flags.FLAGS.__flags)
     if FLAGS.input_width is None:
@@ -84,6 +83,8 @@ def main(_):
               model.train_z_map(FLAGS)
             elif str.lower(str(cfg["sample"])) == "true":
                 model.sample_HoloGAN(FLAGS)
+            elif str.lower(str(cfg["generate"])) == "true":
+                model.generate_images(FLAGS)
 
 
 if __name__ == '__main__':

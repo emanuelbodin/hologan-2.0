@@ -15,7 +15,7 @@ OUTPUT_DIR = cfg['output_dir']
 LOGDIR = os.path.join(OUTPUT_DIR, "log")
 
 os.environ["CUDA_VISIBLE_DEVICES"] = cfg['gpu']
-
+tf.compat.v1.reset_default_graph()
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']

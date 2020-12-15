@@ -2,4 +2,4 @@ How to run:
 
 python main.py ./config_HoloGAN.json --dataset celeba --input_fname_pattern "*.jpg" --train_size 202598 --crop input_height 64--output_height 64 --train
 
-python main.py ./config_HoloGAN.json --dataset cars_new --input_fname_pattern "*.jpg" --train_size 100000 --crop input_height 128 --output_height 128 --train
+python main.py ./config_HoloGAN.json --dataset shapes3d --input_fname_pattern "*.jpg" --train_size 53000 --crop input_height 64 --output_height 64 --rotate_azimuth

@@ -437,7 +437,8 @@ class HoloGAN(object):
                     os.path.join(
                         self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     ren_img[0])
-        self.animate(np.stack(images))
+        if cfg['batch_size'] == 1:
+          self.animate(np.stack(images))
 # =======================================================================================================================
 
     def generate_images(self, config):

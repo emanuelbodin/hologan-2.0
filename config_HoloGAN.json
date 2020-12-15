@@ -1,6 +1,7 @@
 {
   "z_map": "truee",
   "sample": "true",
+  "generate": "truee",
   "sample_from_z": "true",
   "z_map_image_path": "../datasets/cars_sample",
   "image_path": "../datasets/shapes3d",
@@ -8,7 +9,7 @@
   "batch_size": 32,
   "max_epochs": 50,
   "epoch_step": 25,
-  "z_dim": 128,
+  "z_dim": 200,
   "d_eta": 0.0001,
   "g_eta": 0.0001,
   "beta1": 0.5,

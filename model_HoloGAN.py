@@ -23,7 +23,7 @@ LOGDIR = os.path.join(OUTPUT_DIR, "log")
 MODELDIR = os.path.join(OUTPUT_DIR, 'models')
 IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
 SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
-
+GEN_DIR = os.path.join(OUTPUT_DIR, "../../../generated_data/cleba_64")
 # ----------------------------------------------------------------------------
 def stop():
   raise Exception('STOPPED')
@@ -391,7 +391,7 @@ class HoloGAN(object):
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
-            step = 10
+            step = 5
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
@@ -438,6 +438,45 @@ class HoloGAN(object):
                         self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     ren_img[0])
         self.animate(np.stack(images))
+# =======================================================================================================================
+
+    def generate_images(self, config):
+        sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+        images = []
+        could_load, checkpoint_counter = self.load()
+        if could_load:
+            counter = checkpoint_counter
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+            return
+        if not os.path.exists(self.sample_dir):
+            os.makedirs(self.sample_dir)
+       
+        sample_view = self.gen_view_func(cfg['batch_size'],
+                        cfg['ele_low'], cfg['ele_high'],
+                        cfg['azi_low'], cfg['azi_high'],
+                        cfg['scale_low'], cfg['scale_high'],
+                        cfg['x_low'], cfg['x_high'],
+                        cfg['y_low'], cfg['y_high'],
+                        cfg['z_low'], cfg['z_high'],
+                        with_translation=to_bool(str(cfg['with_translation'])),
+                        with_scale=to_bool(str(cfg['with_scale'])))
+
+        feed_eval = {self.z: sample_z,
+                         self.view_in: sample_view}
+
+        samples = self.sess.run(self.G, feed_dict=feed_eval)
+        ren_img1 = inverse_transform(samples)
+        ren_img = np.clip(255 * ren_img1, 0, 255).astype(np.uint8)
+        images.append(ren_img1[0])
+        counter = 0
+        for img in ren_img:
+          img = Image.fromarray(img, 'RGB')
+          img.paste(img)
+          img.save(os.path.join("../generated_data/celeba_64", "{0}.jpg".format(counter)),"JPEG")
+          counter = counter + 1
+          print('IMage saved: ', counter)
 # =======================================================================================================================
 
     def sample_from_z(self, config, z):

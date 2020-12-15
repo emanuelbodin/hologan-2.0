@@ -23,7 +23,7 @@ print('start')
 counter = 0
 for filename in os.listdir(path):
     #if filename.endswith('.jpg'):
-    oriimg = cv2.imread(path+'/'+filename)
+    #oriimg = cv2.imread(path+'/'+filename)
     #height, width, depth = oriimg.shape
     #imgScale = W/width
     #newX,newY = oriimg.shape[1]*imgScale, oriimg.shape[0]*imgScale

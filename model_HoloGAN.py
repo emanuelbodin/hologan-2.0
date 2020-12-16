@@ -25,6 +25,7 @@ SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
 # ----------------------------------------------------------------------------
 def stop():
+  print('hej')
   raise Exception('STOPPED')
 
 class HoloGAN(object):

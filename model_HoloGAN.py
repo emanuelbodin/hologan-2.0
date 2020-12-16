@@ -11,7 +11,6 @@ import shutil
 import imageio
 import numpy as np
 from PIL import Image
-from tensorflow_docs.vis import embed
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -145,16 +144,6 @@ class HoloGAN(object):
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
         self.saver = tf.train.Saver()        
-
-    # Given a set of images, show an animation.
-    def animate(self, images):
-      images = np.array(images)
-      converted_images = np.clip(images * 255, 0, 255).astype(np.uint8)
-      if (True):
-        images_2 = np.flip(converted_images, 0)
-        converted_images = np.append(converted_images, images_2, axis=0)
-      imageio.mimsave('./animation.gif', converted_images)
-      return embed.embed_file('./animation.gif')
         
     def train_z_map(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
@@ -391,7 +380,7 @@ class HoloGAN(object):
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
-            step = 5
+            step = 2
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
@@ -437,8 +426,6 @@ class HoloGAN(object):
                     os.path.join(
                         self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     ren_img[0])
-        if cfg['batch_size'] == 1:
-          self.animate(np.stack(images))
 # =======================================================================================================================
 
     def generate_images(self, config):
@@ -578,7 +565,7 @@ class HoloGAN(object):
             # Returning logits to determine whether the images are real or fake
             h4 = linear(slim.flatten(h3), 1, 'd_h4_lin')
             # Recognition network for latent variables has an additional layer
-            encoder = lrelu((linear(slim.flatten(h3), cfg['z_dim'], 'd_latent')))
+            encoder = lrelu((linear(slim.flatten(h3), 128, 'd_latent')))
             cont_vars = linear(encoder, cont_dim, "d_latent_prediction")
             return tf.nn.sigmoid(h4), h4, tf.nn.tanh(cont_vars)
 # =======================================================================================================================

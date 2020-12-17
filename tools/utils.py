@@ -11,7 +11,7 @@ import random
 import pprint
 import scipy.misc
 import numpy as np
-
+import cv2
 from tools.rotation_utils import *
 
 
@@ -37,24 +37,17 @@ def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,
               crop=True):
     image = load_webp(image_path)
-    if (image.shape[1] == resize_height):
-      crop = False
-    """
-    print(image)
-    img = Image.fromarray(image, 'RGB')
-    img.show()
-    img = transform(image, input_height, input_width, resize_height, resize_width, crop)
-    img = np.clip(255 * img + 127.5, 0, 255).astype(np.uint8)
-    img = Image.fromarray(img, 'RGB')
-    img.show()
-    raise Exception('å')
-    """
+    crop = False
+    if (input_height != resize_height):
+      image = cv2.resize(image,(int(resize_height),int(resize_width)))
+
+    image = np.asarray(image)
     return transform(image, input_height, input_width, resize_height, resize_width, crop)
 
 
 def load_webp(img_path):
-    im = Image.open(img_path)
-    return np.asarray(im)
+    im = cv2.imread(img_path)
+    return im
 
 
 def merge(images, size):

@@ -11,6 +11,7 @@ import shutil
 import imageio
 import numpy as np
 from PIL import Image
+import matplotlib.pyplot as pyplot
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -201,10 +202,11 @@ class HoloGAN(object):
 
         new_image.paste(original_img_obj,(0,0))
         new_image.paste(sample_img_obj,(original_img_obj.size[1],0))
-
+        losses = []
         for step in range(num_optimization_steps):
           feed_z_map = { self.view_in: sample_view, self.z: sample_z}
           _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
+          losses.append(loss)
           print('loss: ', loss)
         
         print()
@@ -217,6 +219,11 @@ class HoloGAN(object):
         reconstructed_img_obj = Image.fromarray(reconstructed_img[0], 'RGB')
         new_image.paste(reconstructed_img_obj,(original_img_obj.size[1]*2,0))
         new_image.save(os.path.join(self.sample_dir, "result.jpg"),"JPEG")
+
+        if True:
+          plt.plot(losses)
+          plt.xlabel('Steps')
+          plt.ylabel('Loss')
 
         if str.lower(str(cfg["sample_from_z"])) == "true":
           self.sample_from_z(config, sample_z)

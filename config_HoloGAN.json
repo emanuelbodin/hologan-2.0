@@ -27,7 +27,7 @@
   "ele_low": 70,
   "ele_high": 110,
   "azi_low": 0,
-  "azi_high": 90,
+  "azi_high": 180,
   "scale_low": 1.0,
   "scale_high": 1.0,
   "x_low": 0,

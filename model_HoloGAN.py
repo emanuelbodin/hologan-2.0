@@ -388,7 +388,7 @@ class HoloGAN(object):
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
-            step = 10
+            step = 1
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
@@ -535,7 +535,7 @@ class HoloGAN(object):
             # Returning logits to determine whether the images are real or fake
             h4 = linear(slim.flatten(h3), 1, 'd_h4_lin')
             # Recognition network for latent variables has an additional layer
-            encoder = lrelu((linear(slim.flatten(h3), cfg['z_dim'], 'd_latent')))
+            encoder = lrelu((linear(slim.flatten(h3), 128, 'd_latent')))
             cont_vars = linear(encoder, cont_dim, "d_latent_prediction")
             return tf.nn.sigmoid(h4), h4, tf.nn.tanh(cont_vars)
 # =======================================================================================================================

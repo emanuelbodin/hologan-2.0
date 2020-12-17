@@ -4,7 +4,7 @@ from tensorflow_docs.vis import embed
 import os
 import cv2
 
-model = "shapes3d"
+model = "celeba"
 
 path = r"./HoloGAN/samples/" + model
 

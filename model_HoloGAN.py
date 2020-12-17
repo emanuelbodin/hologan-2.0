@@ -12,6 +12,7 @@ import imageio
 import numpy as np
 from PIL import Image
 from tensorflow_docs.vis import embed
+import matplotlib.pyplot as plt
 
 with open(sys.argv[1], 'r') as fh:
     cfg = json.load(fh)
@@ -146,16 +147,6 @@ class HoloGAN(object):
 
         self.saver = tf.train.Saver()        
 
-    # Given a set of images, show an animation.
-    def animate(self, images):
-      images = np.array(images)
-      converted_images = np.clip(images * 255, 0, 255).astype(np.uint8)
-      if (True):
-        images_2 = np.flip(converted_images, 0)
-        converted_images = np.append(converted_images, images_2, axis=0)
-      imageio.mimsave('./animation.gif', converted_images)
-      return embed.embed_file('./animation.gif')
-        
     def train_z_map(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
         sample_view = self.gen_view_func(cfg['batch_size'],
@@ -212,12 +203,12 @@ class HoloGAN(object):
 
         new_image.paste(original_img_obj,(0,0))
         new_image.paste(sample_img_obj,(original_img_obj.size[1],0))
-
+        losses = []
         for step in range(num_optimization_steps):
           feed_z_map = { self.view_in: sample_view, self.z: sample_z}
           _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
           print('loss: ', loss)
-        
+          losses.append(loss)
         print()
         feed = { self.view_in: sample_view, self.z: sample_z}
         reconstructed_img = self.sess.run(self.G, feed_dict=feed)
@@ -228,6 +219,10 @@ class HoloGAN(object):
         reconstructed_img_obj = Image.fromarray(reconstructed_img[0], 'RGB')
         new_image.paste(reconstructed_img_obj,(original_img_obj.size[1]*2,0))
         new_image.save(os.path.join(self.sample_dir, "result.jpg"),"JPEG")
+
+        plt.plot(losses)
+        plt.xlabel('steps')
+        plt.ylabel('loss')
 
         if str.lower(str(cfg["sample_from_z"])) == "true":
           self.sample_from_z(config, sample_z)

@@ -84,6 +84,8 @@ def main(_):
               model.train_z_map(FLAGS)
             elif str.lower(str(cfg["sample"])) == "true":
                 model.sample_HoloGAN(FLAGS)
+            elif str.lower(str(cfg["generate"])) == "true":
+                model.generate_images(FLAGS)
 
 
 if __name__ == '__main__':

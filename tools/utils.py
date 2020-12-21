@@ -20,7 +20,8 @@ import tensorflow.contrib.slim as slim
 import glob
 import os
 import random
-import scipy.misc
+
+import matplotlib.pyplot as plt
 
 pp = pprint.PrettyPrinter()
 
@@ -37,6 +38,11 @@ def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,
               crop=True):
     image = load_webp(image_path)
+    """
+    cv2.imshow('image',img)
+    cv2.waitKey(0)
+    raise Exception('å')
+    """
     crop = False
     if (input_height != resize_height):
       image = cv2.resize(image,(int(resize_height),int(resize_width)))
@@ -94,7 +100,8 @@ def transform(image, input_height, input_width,
     # In case of binary mask with no channels:
     if len(cropped_image.shape) != 3:
         cropped_image = np.expand_dims(cropped_image, -1)
-    return np.array(cropped_image)[:, :, :3]/127.5 - 1.
+    
+    return np.array(cropped_image)[:, :, :3]/255.
 
 
 def inverse_transform(images):

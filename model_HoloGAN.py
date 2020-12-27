@@ -25,8 +25,8 @@ MODELDIR = os.path.join(OUTPUT_DIR, 'models')
 IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
 SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
-STEP = 4
-GEN_DIR = "../generated_data/celeba"
+STEP = 5
+GEN_DIR = "../generated_data/shapes3d"
 # ----------------------------------------------------------------------------
 def stop():
   raise Exception('STOPPED')
@@ -146,26 +146,24 @@ class HoloGAN(object):
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver()     
+        self.saver = tf.train.Saver()   
 
 
 
     # =======================================================================================================================
     def generate_images(self, config):
         count = 0
-        for i in range(500):
-          sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-          images = []
-          could_load, checkpoint_counter = self.load()
-          if could_load:
-              counter = checkpoint_counter
-              print(" [*] Load SUCCESS")
-          else:
-              print(" [!] Load failed...")
-              return
-          if not os.path.exists(self.sample_dir):
-              os.makedirs(self.sample_dir)
-        
+        could_load, checkpoint_counter = self.load()
+        if could_load:
+            counter = checkpoint_counter
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+            return
+        if not os.path.exists(self.sample_dir):
+            os.makedirs(self.sample_dir)
+        for i in range(100):
+          sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))        
           sample_view = self.gen_view_func(cfg['batch_size'],
                           cfg['ele_low'], cfg['ele_high'],
                           cfg['azi_low'], cfg['azi_high'],
@@ -180,13 +178,9 @@ class HoloGAN(object):
                           self.view_in: sample_view}
 
           samples = self.sess.run(self.G, feed_dict=feed_eval)
-          ren_img1 = inverse_transform(samples)
-          ren_img = np.clip(255 * ren_img1, 0, 255).astype(np.uint8)
-          images.append(ren_img1[0])
+          ren_img = np.clip(255 * samples, 0, 255).astype(np.uint8)
           for img in ren_img:
-            img = Image.fromarray(img, 'RGB')
-            img.paste(img)
-            img.save(os.path.join(GEN_DIR, "{0}.jpg".format(count)),"JPEG")
+            cv2.imwrite(os.path.join(GEN_DIR, "{0}.jpg".format(count)),img)
             count = count + 1
             print('Image saved: ', count)
 # =======================================================================================================================
@@ -233,45 +227,40 @@ class HoloGAN(object):
             print(" [!] Load failed...")
             return
 
-        num_optimization_steps = 1000
+        num_optimization_steps = 500
         losses = []
         print('START')
         feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_img}
         original_img = self.sess.run(self.G, feed_dict=feed)
-        original_img = inverse_transform(original_img)
         original_img = np.clip(255 * original_img, 0, 255).astype(np.uint8)
-        sample_img_obj = inverse_transform(sample_img)
-        sample_img_obj = np.clip(255 * sample_img_obj, 0, 255).astype(np.uint8)
-        original_img_obj = Image.fromarray(original_img[0], 'RGB')
-        sample_img_obj = Image.fromarray(sample_img_obj[0], 'RGB')
-        new_image = Image.new('RGB',(3*original_img_obj.size[1], original_img_obj.size[1]), (250,250,250))
 
-        new_image.paste(original_img_obj,(0,0))
-        new_image.paste(sample_img_obj,(original_img_obj.size[1],0))
         losses = []
         for step in range(num_optimization_steps):
           feed_z_map = { self.view_in: sample_view, self.z: sample_z}
           _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
           print('loss: ', loss)
           losses.append(loss)
+          if loss < 300:
+            break
         print()
         feed = { self.view_in: sample_view, self.z: sample_z}
         reconstructed_img = self.sess.run(self.G, feed_dict=feed)
-        reconstructed_img = inverse_transform(reconstructed_img)
         reconstructed_img = np.clip(255 * reconstructed_img, 0, 255).astype(np.uint8)
-
-        #print(self.sess.run(z_var))
-        reconstructed_img_obj = Image.fromarray(reconstructed_img[0], 'RGB')
-        new_image.paste(reconstructed_img_obj,(original_img_obj.size[1]*2,0))
-        new_image.save(os.path.join(self.sample_dir, "result.jpg"),"JPEG")
+        sample_img = np.clip(255 * sample_img, 0, 255).astype(np.uint8)
+        start = original_img[0]
+        target = sample_img[0]
+        result = reconstructed_img[0]
+        image = np.concatenate([start, target, result], axis=1)
+        print(os.path.join(self.img_dir, "result.jpg"))
+        cv2.imwrite(os.path.join(self.sample_dir, "result.jpg"), image)
 
         plt.plot(losses)
         plt.xlabel('steps')
         plt.ylabel('loss')
         plt.ylim(ymin=0)  
         plt.xlim(xmin=0)  
-        plt.title("Loss per iteration for shapes3d sample")
-        plt.show()
+        plt.title("Loss per iteration for 50 samples of shapes3d")
+        #plt.show()
 
         if str.lower(str(cfg["sample_from_z"])) == "true":
           self.sample_from_z(config, sample_z)
@@ -400,17 +389,16 @@ class HoloGAN(object):
                     samples, d_loss, g_loss = self.sess.run(
                         [self.G, self.d_loss, self.g_loss],
                         feed_dict=feed_eval)
-                    ren_img = inverse_transform(samples)
-                    ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+                    ren_img = np.clip(255 * samples, 0, 255).astype(np.uint8)
                     try:
-                        imageio.imwrite(
+                        cv2.imwrite(
                             os.path.join(
                                 self.img_dir, "{0}_GAN.jpg".format(counter)),
                             merge(ren_img, [cfg['batch_size'] // 4, 4]))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                               (d_loss, g_loss))
                     except:
-                        imageio.imwrite(
+                        cv2.imwrite(
                             os.path.join(
                                 self.img_dir, "{0}_GAN.jpg".format(counter)),
                             ren_img[0])
@@ -419,7 +407,6 @@ class HoloGAN(object):
 
     def sample_HoloGAN(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
-        images = []
         could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
@@ -437,7 +424,7 @@ class HoloGAN(object):
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
-            step = 5
+            step = STEP
         else:
             low = 0
             high = 10
@@ -466,24 +453,25 @@ class HoloGAN(object):
                          self.view_in: sample_view}
 
             samples = self.sess.run(self.G, feed_dict=feed_eval)
-            ren_img = inverse_transform(samples)
-            ren_img = np.clip(255 * ren_img , 0, 255).astype(np.uint8)
-
+            ren_img = np.clip(255 * samples , 0, 255).astype(np.uint8)
             """
             cv2.imshow('image',ren_img[0])
             cv2.waitKey(0)
             raise Exception('å')
             """
+            i_write = i
+            if i < 10:
+              i_write = '0' + str(i)
             
             try:
                 cv2.imwrite(
                     os.path.join(
-                        self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
+                        self.sample_dir, "{0}.jpg".format(i_write)),
                     merge(ren_img, [cfg['batch_size'] // 4, 4]))
             except:
                 cv2.imwrite(
                     os.path.join(
-                        self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
+                        self.sample_dir, "{0}.jpg".format(i_write)),
                     ren_img[0])
 # =======================================================================================================================
 
@@ -524,16 +512,15 @@ class HoloGAN(object):
                          self.view_in: sample_view}
 
             samples = self.sess.run(self.G, feed_dict=feed_eval)
-            ren_img = inverse_transform(samples)
-            ren_img = np.clip(255 * ren_img, 0, 255).astype(np.uint8)
+            ren_img = np.clip(255 * samples, 0, 255).astype(np.uint8)
           
             try:
-                imageio.imwrite(
+                cv2.imwrite(
                     os.path.join(
                         self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     merge(ren_img, [cfg['batch_size'] // 4, 4]))
             except:
-                imageio.imwrite(
+                cv2.imwrite(
                     os.path.join(
                         self.sample_dir, "{0}_samples_{1}.jpg".format(counter, i)),
                     ren_img[0])

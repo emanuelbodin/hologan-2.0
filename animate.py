@@ -3,8 +3,9 @@ import imageio
 from tensorflow_docs.vis import embed
 import os
 import cv2
+import glob
 
-model = "celeba"
+model = "lsun"
 
 path = r"./HoloGAN/samples/" + model
 
@@ -13,11 +14,12 @@ def loadImages(path):
     print('start')
     counter = 0
     arr = []
-    for filename in os.listdir(path):
-        img = imageio.imread(path+'/'+filename)
+    for file in sorted(glob.glob(path + '/*.jpg')):
+        print(file)
+        img = imageio.imread(file)
         arr.append(img)
-        print('Image stored in array', counter)
-        counter = counter + 1
+    arr_2 = np.flip(arr, 0)
+    arr = np.append(arr, arr_2, axis=0)
     return arr
 
 def animate(images):

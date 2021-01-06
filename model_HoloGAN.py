@@ -25,8 +25,8 @@ MODELDIR = os.path.join(OUTPUT_DIR, 'models')
 IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
 SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
-STEP = 5
-GEN_DIR = "../generated_data/shapes3d"
+STEP = 10
+GEN_DIR = "../generated_data/cars"
 # ----------------------------------------------------------------------------
 def stop():
   raise Exception('STOPPED')
@@ -216,7 +216,8 @@ class HoloGAN(object):
         regularizer = tf.abs(tf.norm(z_var) - np.sqrt(cfg['z_dim']))
         regularizer = tf.cast(regularizer, dtype=tf.float32)
         z_map_loss = target_image_difference + regularizer
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.001, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
+        z_lr = tf.compat.v1.placeholder(tf.float32, None, name='z_lr')
+        optimizer = tf.train.AdamOptimizer(learning_rate=z_lr, name="z_map_optimizer").minimize(z_map_loss, var_list=z_var)
         tf.global_variables_initializer().run()
 
         could_load, checkpoint_counter = self.load()
@@ -227,7 +228,7 @@ class HoloGAN(object):
             print(" [!] Load failed...")
             return
 
-        num_optimization_steps = 500
+        num_optimization_steps = 4000
         losses = []
         print('START')
         feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_img}
@@ -235,13 +236,14 @@ class HoloGAN(object):
         original_img = np.clip(255 * original_img, 0, 255).astype(np.uint8)
 
         losses = []
+        lr = 0.001
         for step in range(num_optimization_steps):
-          feed_z_map = { self.view_in: sample_view, self.z: sample_z}
+          feed_z_map = { self.view_in: sample_view, self.z: sample_z, z_lr: lr}
           _, loss = self.sess.run([optimizer, z_map_loss], feed_dict=feed_z_map)
           print('loss: ', loss)
           losses.append(loss)
-          if loss < 300:
-            break
+          if loss < 500:
+            lr = 0.0005
         print()
         feed = { self.view_in: sample_view, self.z: sample_z}
         reconstructed_img = self.sess.run(self.G, feed_dict=feed)
@@ -259,7 +261,7 @@ class HoloGAN(object):
         plt.ylabel('loss')
         plt.ylim(ymin=0)  
         plt.xlim(xmin=0)  
-        plt.title("Loss per iteration for 50 samples of shapes3d")
+        plt.title("Loss per iteration for 50 samples of cars")
         #plt.show()
 
         if str.lower(str(cfg["sample_from_z"])) == "true":
@@ -407,6 +409,7 @@ class HoloGAN(object):
 
     def sample_HoloGAN(self, config):
         sample_z = self.sampling_Z(cfg['z_dim'], str(cfg['sample_z']))
+        count = 0
         could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
@@ -459,20 +462,24 @@ class HoloGAN(object):
             cv2.waitKey(0)
             raise Exception('å')
             """
-            i_write = i
-            if i < 10:
-              i_write = '0' + str(i)
-            
+            if count < 10:
+              count_str = 'a' + str(count)
+            elif count > 99:
+              count_str = 'c' + str(count)
+            else:
+              count_str = 'b' + str(count)
+
             try:
                 cv2.imwrite(
                     os.path.join(
-                        self.sample_dir, "{0}.jpg".format(i_write)),
+                        self.sample_dir, "{0}.jpg".format(count_str)),
                     merge(ren_img, [cfg['batch_size'] // 4, 4]))
             except:
                 cv2.imwrite(
                     os.path.join(
-                        self.sample_dir, "{0}.jpg".format(i_write)),
+                        self.sample_dir, "{0}.jpg".format(count_str)),
                     ren_img[0])
+            count = count + 1
 # =======================================================================================================================
 
     def sample_from_z(self, config, z):
@@ -480,11 +487,11 @@ class HoloGAN(object):
         if config.rotate_azimuth:
             low = cfg['azi_low']
             high = cfg['azi_high']
-            step = 45
+            step = STEP
         elif config.rotate_elevation:
             low = cfg['ele_low']
             high = cfg['ele_high']
-            step = 5
+            step = STEP
         else:
             low = 0
             high = 90

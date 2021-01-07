@@ -5,7 +5,7 @@ import os
 import cv2
 import glob
 
-model = "clevr"
+model = "cars_128_2"
 
 path = r"./HoloGAN/samples/" + model
 

@@ -26,6 +26,7 @@ IMG_DIR = os.path.join(OUTPUT_DIR, 'images')
 SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
 STEP = 10
+SAVE_STEP = 300
 GEN_DIR = "../generated_data/cars"
 # ----------------------------------------------------------------------------
 def stop():
@@ -146,7 +147,7 @@ class HoloGAN(object):
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver()   
+        self.saver = tf.train.Saver(max_to_keep=100)   
 
 
 
@@ -204,7 +205,7 @@ class HoloGAN(object):
                                     resize_height=self.output_height,
                                     resize_width=self.output_width,
                                     crop=False)
-        sample_img = sample_img.reshape(1, 64,64,3).astype('float32')
+        sample_img = sample_img.reshape(1, 128,128,3).astype('float32')
 
         vars = tf.trainable_variables()
         z_var = [var for var in vars if 'z_weight' in var.name]
@@ -381,7 +382,7 @@ class HoloGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG, errQ))
 
-                if np.mod(counter, 5000) == 1:
+                if np.mod(counter, SAVE_STEP) == 1:
                     self.save(counter)
                     feed_eval = {self.inputs: sample_images,
                                  self.z: sample_z,
@@ -712,6 +713,9 @@ class HoloGAN(object):
 # =======================================================================================================================
     def generator_AdaIN_res128(self, z, view_in, reuse=False):
         batch_size = tf.shape(z)[0]
+        ones = tf.eye(cfg['z_dim'], dtype=tf.float32)
+        z_w = tf.Variable(ones, name="z_weight")
+        z = tf.matmul(z, z_w)
         s_h, s_w, s_d = 64, 64, 64
         s_h2, s_w2, s_d2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2), conv_out_size_same(s_d, 2)
         s_h4, s_w4, s_d4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2), conv_out_size_same(s_d2, 2)

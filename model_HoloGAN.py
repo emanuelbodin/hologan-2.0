@@ -27,7 +27,7 @@ SAMPLE_DIR = os.path.join(OUTPUT_DIR, "samples")
 
 STEP = 10
 SAVE_STEP = 300
-GEN_DIR = "../generated_data/cars"
+GEN_DIR = "../generated_data/lsun"
 # ----------------------------------------------------------------------------
 def stop():
   raise Exception('STOPPED')
@@ -205,7 +205,7 @@ class HoloGAN(object):
                                     resize_height=self.output_height,
                                     resize_width=self.output_width,
                                     crop=False)
-        sample_img = sample_img.reshape(1, 128,128,3).astype('float32')
+        sample_img = sample_img.reshape(1, 64,64,3).astype('float32')
 
         vars = tf.trainable_variables()
         z_var = [var for var in vars if 'z_weight' in var.name]
@@ -229,7 +229,7 @@ class HoloGAN(object):
             print(" [!] Load failed...")
             return
 
-        num_optimization_steps = 4000
+        num_optimization_steps = 5000
         losses = []
         print('START')
         feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_img}

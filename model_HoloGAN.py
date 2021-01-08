@@ -229,7 +229,7 @@ class HoloGAN(object):
             print(" [!] Load failed...")
             return
 
-        num_optimization_steps = 5000
+        num_optimization_steps = 500
         losses = []
         print('START')
         feed = { self.view_in: sample_view, self.z: sample_z, self.inputs: sample_img}

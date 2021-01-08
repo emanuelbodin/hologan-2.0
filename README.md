@@ -1,4 +1,4 @@
-# HoloGAN
+# HoloGAN :)
 
 Code release for HoloGAN: Unsupervised learning of 3D representations from natural images.
 
